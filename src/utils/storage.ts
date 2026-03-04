@@ -1,13 +1,22 @@
 import { cloneDemoRows, DEFAULT_SETTINGS } from '../data/demo'
-import type { AllocationTargets, HoldingRow, PortfolioSnapshot, Settings } from '../types'
+import type {
+  AllocationTargets,
+  DashboardFilterState,
+  HoldingRow,
+  PortfolioSnapshot,
+  SavedDashboardView,
+  Settings
+} from '../types'
 import { HOLDING_TYPES } from '../types'
 import { DEFAULT_ALLOCATION_TARGETS, sanitizeTargets } from './allocationTargets'
+import { normalizeTags } from './tags'
 
 const STORAGE_KEY = 'personal-finance-dashboard'
-const SCHEMA_VERSION = 3
+const SCHEMA_VERSION = 4
 
-type LegacyHoldingRow = Omit<HoldingRow, 'cantidad'> & {
+type LegacyHoldingRow = Omit<HoldingRow, 'cantidad' | 'tags'> & {
   cantidad?: number | null
+  tags?: string[]
 }
 
 interface PersistedDashboardV1 {
@@ -34,11 +43,22 @@ interface PersistedDashboardV3 {
   updatedAt: number
 }
 
+interface PersistedDashboardV4 {
+  schemaVersion: 4
+  rows: HoldingRow[]
+  settings: Settings
+  targets: AllocationTargets
+  snapshots: PortfolioSnapshot[]
+  savedViews: SavedDashboardView[]
+  updatedAt: number
+}
+
 export interface PersistedDashboard {
   rows: HoldingRow[]
   settings: Settings
   targets: AllocationTargets
   snapshots: PortfolioSnapshot[]
+  savedViews: SavedDashboardView[]
   updatedAt: number | null
 }
 
@@ -52,6 +72,7 @@ const isValidRow = (row: unknown): row is LegacyHoldingRow => {
     candidate.cantidad === undefined ||
     candidate.cantidad === null ||
     (typeof candidate.cantidad === 'number' && Number.isFinite(candidate.cantidad))
+  const tagsAreValid = candidate.tags === undefined || (Array.isArray(candidate.tags) && candidate.tags.every((tag) => typeof tag === 'string'))
 
   return (
     typeof candidate.id === 'string' &&
@@ -61,7 +82,8 @@ const isValidRow = (row: unknown): row is LegacyHoldingRow => {
     Number.isFinite(candidate.monto) &&
     typeof candidate.tipo === 'string' &&
     typeof candidate.subactivo === 'string' &&
-    quantityIsValid
+    quantityIsValid &&
+    tagsAreValid
   )
 }
 
@@ -71,6 +93,7 @@ const normalizeRow = (row: LegacyHoldingRow): HoldingRow => ({
   moneda: row.moneda,
   monto: row.monto,
   cantidad: typeof row.cantidad === 'number' && Number.isFinite(row.cantidad) ? row.cantidad : null,
+  tags: normalizeTags(Array.isArray(row.tags) ? row.tags : []),
   tipo: row.tipo,
   subactivo: row.subactivo
 })
@@ -143,6 +166,70 @@ const isValidSnapshot = (snapshot: unknown): snapshot is PortfolioSnapshot => {
   )
 }
 
+const isStringArray = (value: unknown): value is string[] => Array.isArray(value) && value.every((item) => typeof item === 'string')
+
+const normalizeFilterState = (filters: DashboardFilterState): DashboardFilterState => {
+  const normalizedTypeFilters = filters.typeFilters.filter((type) => HOLDING_TYPES.includes(type))
+
+  return {
+    searchTerm: filters.searchTerm.trim(),
+    typeFilters: normalizedTypeFilters,
+    currencyFilters: normalizeTags(filters.currencyFilters),
+    subassetCategoryFilters: normalizeTags(filters.subassetCategoryFilters),
+    subassetFilters: normalizeTags(filters.subassetFilters),
+    tagFilters: normalizeTags(filters.tagFilters)
+  }
+}
+
+const isValidFilterState = (filters: unknown): filters is DashboardFilterState => {
+  if (!filters || typeof filters !== 'object') {
+    return false
+  }
+
+  const candidate = filters as DashboardFilterState
+
+  if (typeof candidate.searchTerm !== 'string') {
+    return false
+  }
+
+  if (!Array.isArray(candidate.typeFilters) || !candidate.typeFilters.every((type) => HOLDING_TYPES.includes(type))) {
+    return false
+  }
+
+  return (
+    isStringArray(candidate.currencyFilters) &&
+    isStringArray(candidate.subassetCategoryFilters) &&
+    isStringArray(candidate.subassetFilters) &&
+    isStringArray(candidate.tagFilters)
+  )
+}
+
+const isValidSavedView = (view: unknown): view is SavedDashboardView => {
+  if (!view || typeof view !== 'object') {
+    return false
+  }
+
+  const candidate = view as SavedDashboardView
+
+  return (
+    typeof candidate.id === 'string' &&
+    typeof candidate.name === 'string' &&
+    isValidFilterState(candidate.filters) &&
+    typeof candidate.createdAt === 'number' &&
+    Number.isFinite(candidate.createdAt) &&
+    typeof candidate.updatedAt === 'number' &&
+    Number.isFinite(candidate.updatedAt)
+  )
+}
+
+const normalizeSavedView = (view: SavedDashboardView): SavedDashboardView => ({
+  id: view.id,
+  name: view.name.trim(),
+  filters: normalizeFilterState(view.filters),
+  createdAt: view.createdAt,
+  updatedAt: view.updatedAt
+})
+
 const migrateFromV1 = (candidate: PersistedDashboardV1): PersistedDashboard | null => {
   if (!Array.isArray(candidate.rows) || !candidate.rows.every((row) => isValidRow(row)) || !isValidSettings(candidate.settings)) {
     return null
@@ -153,6 +240,7 @@ const migrateFromV1 = (candidate: PersistedDashboardV1): PersistedDashboard | nu
     settings: { ...candidate.settings },
     targets: { ...DEFAULT_ALLOCATION_TARGETS, byType: {}, bySubasset: {} },
     snapshots: [],
+    savedViews: [],
     updatedAt: typeof candidate.updatedAt === 'number' ? candidate.updatedAt : null
   }
 }
@@ -172,6 +260,7 @@ const migrateFromV2 = (candidate: PersistedDashboardV2): PersistedDashboard | nu
     settings: { ...candidate.settings },
     targets: sanitizeTargets(candidate.targets),
     snapshots: [],
+    savedViews: [],
     updatedAt: typeof candidate.updatedAt === 'number' ? candidate.updatedAt : null
   }
 }
@@ -193,6 +282,31 @@ const migrateFromV3 = (candidate: PersistedDashboardV3): PersistedDashboard | nu
     settings: { ...candidate.settings },
     targets: sanitizeTargets(candidate.targets),
     snapshots: [...candidate.snapshots].sort((left, right) => left.date.localeCompare(right.date)),
+    savedViews: [],
+    updatedAt: typeof candidate.updatedAt === 'number' ? candidate.updatedAt : null
+  }
+}
+
+const migrateFromV4 = (candidate: PersistedDashboardV4): PersistedDashboard | null => {
+  if (
+    !Array.isArray(candidate.rows) ||
+    !candidate.rows.every((row) => isValidRow(row)) ||
+    !isValidSettings(candidate.settings) ||
+    !isValidTargets(candidate.targets) ||
+    !Array.isArray(candidate.snapshots) ||
+    !candidate.snapshots.every((snapshot) => isValidSnapshot(snapshot)) ||
+    !Array.isArray(candidate.savedViews) ||
+    !candidate.savedViews.every((view) => isValidSavedView(view))
+  ) {
+    return null
+  }
+
+  return {
+    rows: candidate.rows.map(normalizeRow),
+    settings: { ...candidate.settings },
+    targets: sanitizeTargets(candidate.targets),
+    snapshots: [...candidate.snapshots].sort((left, right) => left.date.localeCompare(right.date)),
+    savedViews: candidate.savedViews.map(normalizeSavedView).sort((left, right) => left.name.localeCompare(right.name, 'es')),
     updatedAt: typeof candidate.updatedAt === 'number' ? candidate.updatedAt : null
   }
 }
@@ -216,6 +330,10 @@ const migrate = (payload: unknown): PersistedDashboard | null => {
     return migrateFromV3(payload as PersistedDashboardV3)
   }
 
+  if (candidate.schemaVersion === 4) {
+    return migrateFromV4(payload as PersistedDashboardV4)
+  }
+
   return null
 }
 
@@ -223,13 +341,17 @@ export const parsePersistedDashboard = (payload: unknown): PersistedDashboard | 
   return migrate(payload)
 }
 
-export const serializePersistedDashboard = (data: PersistedDashboard): PersistedDashboardV3 => {
+export const serializePersistedDashboard = (data: PersistedDashboard): PersistedDashboardV4 => {
   return {
     schemaVersion: SCHEMA_VERSION,
-    rows: data.rows,
+    rows: data.rows.map((row) => ({
+      ...row,
+      tags: normalizeTags(row.tags)
+    })),
     settings: data.settings,
     targets: sanitizeTargets(data.targets),
     snapshots: [...data.snapshots].sort((left, right) => left.date.localeCompare(right.date)),
+    savedViews: data.savedViews.map(normalizeSavedView).sort((left, right) => left.name.localeCompare(right.name, 'es')),
     updatedAt: data.updatedAt ?? Date.now()
   }
 }
@@ -239,6 +361,7 @@ const defaultPersistedDashboard = (): PersistedDashboard => ({
   settings: { ...DEFAULT_SETTINGS },
   targets: { ...DEFAULT_ALLOCATION_TARGETS, byType: {}, bySubasset: {} },
   snapshots: [],
+  savedViews: [],
   updatedAt: null
 })
 

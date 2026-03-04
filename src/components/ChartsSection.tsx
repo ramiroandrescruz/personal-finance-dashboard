@@ -122,6 +122,7 @@ export const ChartsSection = ({ byType, bySubasset, byAccount }: ChartsSectionPr
                   itemStyle={tooltipTextStyle}
                 />
                 <Legend
+                  wrapperStyle={{ paddingTop: 6 }}
                   formatter={(value) => {
                     const meta = subassetMeta.get(String(value))
 
@@ -158,7 +159,7 @@ export const ChartsSection = ({ byType, bySubasset, byAccount }: ChartsSectionPr
                   dataKey="value"
                   fill="var(--bar-fill)"
                   radius={[8, 8, 0, 0]}
-                  activeBar={{ fill: 'var(--bar-active)', stroke: 'var(--bar-stroke)', strokeWidth: 1 }}
+                  activeBar={{ fill: '#38bdf8', stroke: '#7dd3fc', strokeWidth: 1 }}
                 />
               </BarChart>
             </ResponsiveContainer>

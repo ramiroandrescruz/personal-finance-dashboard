@@ -10,6 +10,7 @@ export interface HoldingRow {
   moneda: string
   monto: number
   cantidad: number | null
+  tags: string[]
   tipo: HoldingType
   subactivo: string
 }
@@ -23,6 +24,23 @@ export interface AllocationTargets {
   byType: Partial<Record<HoldingType, number>>
   bySubasset: Record<string, number>
   alertThresholdPct: number
+}
+
+export interface DashboardFilterState {
+  searchTerm: string
+  typeFilters: HoldingType[]
+  currencyFilters: string[]
+  subassetCategoryFilters: string[]
+  subassetFilters: string[]
+  tagFilters: string[]
+}
+
+export interface SavedDashboardView {
+  id: string
+  name: string
+  filters: DashboardFilterState
+  createdAt: number
+  updatedAt: number
 }
 
 export interface PortfolioSnapshot {
@@ -39,6 +57,7 @@ export interface HoldingsState {
   settings: Settings
   targets: AllocationTargets
   snapshots: PortfolioSnapshot[]
+  savedViews: SavedDashboardView[]
   lastEditedAt: number | null
 }
 

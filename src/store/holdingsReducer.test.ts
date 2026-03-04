@@ -10,6 +10,7 @@ const initialState: HoldingsState = {
       moneda: 'USD',
       monto: 10,
       cantidad: null,
+      tags: [],
       tipo: 'Cash',
       subactivo: 'USD'
     }
@@ -24,6 +25,7 @@ const initialState: HoldingsState = {
     alertThresholdPct: 5
   },
   snapshots: [],
+  savedViews: [],
   lastEditedAt: null
 }
 
@@ -39,6 +41,7 @@ describe('holdingsReducer', () => {
             moneda: 'USD',
             monto: 200,
             cantidad: 2,
+            tags: ['core'],
             tipo: 'Investments',
             subactivo: 'SPY'
           }
@@ -52,7 +55,8 @@ describe('holdingsReducer', () => {
           bySubasset: { SPY: 30 },
           alertThresholdPct: 3
         },
-        snapshots: []
+        snapshots: [],
+        savedViews: []
       }
     })
 
@@ -72,6 +76,7 @@ describe('holdingsReducer', () => {
         moneda: 'ARS',
         monto: 1200,
         cantidad: null,
+        tags: [],
         tipo: 'Cash',
         subactivo: 'ARS'
       }

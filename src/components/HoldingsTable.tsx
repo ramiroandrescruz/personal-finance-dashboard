@@ -3,8 +3,9 @@ import type { HoldingRow, HoldingType, Settings } from '../types'
 import { HOLDING_TYPES } from '../types'
 import { convertRowToUsd } from '../utils/conversion'
 import { formatPlainNumber, formatQuantity, formatUsd, parseAmountInput } from '../utils/number'
+import { formatTags, parseTagsInput } from '../utils/tags'
 
-type EditableField = 'cuenta' | 'moneda' | 'monto' | 'cantidad' | 'tipo' | 'subactivo'
+type EditableField = 'cuenta' | 'moneda' | 'monto' | 'cantidad' | 'tags' | 'tipo' | 'subactivo'
 type SortColumn = EditableField | 'usdOficial' | 'usdFinanciero'
 
 interface SortState {
@@ -17,11 +18,21 @@ interface HoldingsTableProps {
   settings: Settings
   onUpdateRow: (id: string, patch: Partial<Omit<HoldingRow, 'id'>>) => void
   onDeleteRow: (id: string) => void
+  onDuplicateRow: (id: string) => void
+  onBulkUpdateRows: (ids: string[], patch: Partial<Omit<HoldingRow, 'id'>>) => void
 }
 
 interface EditingState {
   rowId: string
   field: EditableField
+}
+
+interface BulkDraft {
+  cuenta: string
+  moneda: string
+  tipo: '' | HoldingType
+  subactivo: string
+  tags: string
 }
 
 const sortArrow = (sort: SortState, column: SortColumn): string => {
@@ -34,11 +45,30 @@ const sortArrow = (sort: SortState, column: SortColumn): string => {
 
 const stringCompare = (a: string, b: string): number => a.localeCompare(b, 'es', { sensitivity: 'base' })
 
-export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow }: HoldingsTableProps) => {
+const INITIAL_BULK_DRAFT: BulkDraft = {
+  cuenta: '',
+  moneda: '',
+  tipo: '',
+  subactivo: '',
+  tags: ''
+}
+
+export const HoldingsTable = ({
+  rows,
+  settings,
+  onUpdateRow,
+  onDeleteRow,
+  onDuplicateRow,
+  onBulkUpdateRows
+}: HoldingsTableProps) => {
   const [sortState, setSortState] = useState<SortState>({ column: 'usdFinanciero', direction: 'desc' })
   const [editing, setEditing] = useState<EditingState | null>(null)
   const [draftValue, setDraftValue] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [selectedRowIds, setSelectedRowIds] = useState<string[]>([])
+  const [isBulkEditOpen, setIsBulkEditOpen] = useState(false)
+  const [bulkDraft, setBulkDraft] = useState<BulkDraft>(INITIAL_BULK_DRAFT)
+  const [bulkError, setBulkError] = useState<string | null>(null)
 
   const rowConversions = useMemo(() => {
     const map = new Map<string, ReturnType<typeof convertRowToUsd>>()
@@ -69,6 +99,9 @@ export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow }: Hold
         case 'cantidad':
           comparison = (left.cantidad ?? -1) - (right.cantidad ?? -1)
           break
+        case 'tags':
+          comparison = stringCompare(formatTags(left.tags), formatTags(right.tags))
+          break
         case 'tipo':
           comparison = stringCompare(left.tipo, right.tipo)
           break
@@ -92,6 +125,11 @@ export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow }: Hold
 
     return sorted
   }, [rows, rowConversions, sortState])
+
+  const selectableIds = useMemo(() => sortedRows.map((row) => row.id), [sortedRows])
+  const selectedIdsSet = useMemo(() => new Set(selectedRowIds), [selectedRowIds])
+  const selectedCount = selectedRowIds.length
+  const areAllVisibleSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIdsSet.has(id))
 
   const handleSortChange = (column: SortColumn) => {
     setSortState((previous) => {
@@ -119,6 +157,11 @@ export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow }: Hold
     if (field === 'monto' || field === 'cantidad') {
       const sourceValue = field === 'monto' ? row.monto : row.cantidad
       setDraftValue(sourceValue === null ? '' : sourceValue.toString())
+      return
+    }
+
+    if (field === 'tags') {
+      setDraftValue(formatTags(row.tags))
       return
     }
 
@@ -172,15 +215,21 @@ export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow }: Hold
       return
     }
 
+    if (editing.field === 'tags') {
+      onUpdateRow(editing.rowId, { tags: parseTagsInput(trimmed) })
+      cancelEdit()
+      return
+    }
+
     if (editing.field === 'cantidad' && !trimmed) {
       onUpdateRow(editing.rowId, { cantidad: null })
       cancelEdit()
       return
     }
 
-    const parsedAmount = parseAmountInput(trimmed)
+    const parsedNumber = parseAmountInput(trimmed)
 
-    if (parsedAmount === null) {
+    if (parsedNumber === null) {
       setError(
         editing.field === 'cantidad'
           ? 'Cantidad inválida. Ejemplos válidos: 0,025 o 0.025'
@@ -189,19 +238,19 @@ export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow }: Hold
       return
     }
 
-    if (parsedAmount < 0) {
+    if (parsedNumber < 0) {
       setError(editing.field === 'cantidad' ? 'La cantidad no puede ser negativa.' : 'El monto no puede ser negativo.')
       return
     }
 
     if (editing.field === 'monto') {
-      onUpdateRow(editing.rowId, { monto: parsedAmount })
+      onUpdateRow(editing.rowId, { monto: parsedNumber })
       cancelEdit()
       return
     }
 
     if (editing.field === 'cantidad') {
-      onUpdateRow(editing.rowId, { cantidad: parsedAmount })
+      onUpdateRow(editing.rowId, { cantidad: parsedNumber })
       cancelEdit()
       return
     }
@@ -264,6 +313,8 @@ export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow }: Hold
       displayValue = formatPlainNumber(row.monto)
     } else if (field === 'cantidad') {
       displayValue = row.cantidad === null ? '—' : formatQuantity(row.cantidad)
+    } else if (field === 'tags') {
+      displayValue = row.tags.length > 0 ? formatTags(row.tags) : '—'
     } else {
       displayValue = String(row[field])
     }
@@ -275,10 +326,84 @@ export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow }: Hold
     )
   }
 
+  const toggleRowSelection = (id: string) => {
+    setSelectedRowIds((current) => {
+      if (current.includes(id)) {
+        return current.filter((item) => item !== id)
+      }
+
+      return [...current, id]
+    })
+  }
+
+  const toggleSelectAllVisible = () => {
+    setSelectedRowIds((current) => {
+      const currentSet = new Set(current)
+      const allSelected = selectableIds.every((id) => currentSet.has(id))
+
+      if (allSelected) {
+        return current.filter((id) => !selectableIds.includes(id))
+      }
+
+      return Array.from(new Set([...current, ...selectableIds]))
+    })
+  }
+
+  const openBulkEdit = () => {
+    setBulkDraft(INITIAL_BULK_DRAFT)
+    setBulkError(null)
+    setIsBulkEditOpen(true)
+  }
+
+  const applyBulkEdit = () => {
+    const patch: Partial<Omit<HoldingRow, 'id'>> = {}
+
+    if (bulkDraft.cuenta.trim()) {
+      patch.cuenta = bulkDraft.cuenta.trim()
+    }
+
+    if (bulkDraft.moneda.trim()) {
+      patch.moneda = bulkDraft.moneda.trim().toUpperCase()
+    }
+
+    if (bulkDraft.tipo) {
+      patch.tipo = bulkDraft.tipo
+    }
+
+    if (bulkDraft.subactivo.trim()) {
+      patch.subactivo = bulkDraft.subactivo.trim().toUpperCase()
+    }
+
+    if (bulkDraft.tags.trim()) {
+      patch.tags = parseTagsInput(bulkDraft.tags)
+    }
+
+    if (Object.keys(patch).length === 0) {
+      setBulkError('Definí al menos un campo para aplicar.')
+      return
+    }
+
+    onBulkUpdateRows(selectedRowIds, patch)
+    setIsBulkEditOpen(false)
+    setSelectedRowIds([])
+    setBulkDraft(INITIAL_BULK_DRAFT)
+    setBulkError(null)
+  }
+
   return (
     <section className="table-section" aria-label="Holdings">
       <div className="table-toolbar table-toolbar-compact">
         <p className="muted-text">Holdings filtrados: {sortedRows.length}</p>
+      </div>
+
+      <div className="table-bulk-toolbar">
+        <p className="muted-text">Seleccionadas: {selectedCount}</p>
+        <button type="button" className="btn btn-tertiary" disabled={selectedCount === 0} onClick={openBulkEdit}>
+          Editar seleccionadas
+        </button>
+        <button type="button" className="btn btn-tertiary" disabled={selectedCount === 0} onClick={() => setSelectedRowIds([])}>
+          Limpiar selección
+        </button>
       </div>
 
       {error ? <p className="error-text">{error}</p> : null}
@@ -287,6 +412,14 @@ export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow }: Hold
         <table>
           <thead>
             <tr>
+              <th>
+                <input
+                  type="checkbox"
+                  aria-label="Seleccionar todas las filas visibles"
+                  checked={areAllVisibleSelected}
+                  onChange={toggleSelectAllVisible}
+                />
+              </th>
               <th>
                 <button type="button" className="sort-button" onClick={() => handleSortChange('cuenta')}>
                   Cuenta {sortArrow(sortState, 'cuenta')}
@@ -305,6 +438,11 @@ export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow }: Hold
               <th>
                 <button type="button" className="sort-button" onClick={() => handleSortChange('cantidad')}>
                   Cantidad {sortArrow(sortState, 'cantidad')}
+                </button>
+              </th>
+              <th>
+                <button type="button" className="sort-button" onClick={() => handleSortChange('tags')}>
+                  Tags {sortArrow(sortState, 'tags')}
                 </button>
               </th>
               <th>
@@ -337,6 +475,14 @@ export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow }: Hold
 
               return (
                 <tr key={row.id}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={selectedIdsSet.has(row.id)}
+                      aria-label={`Seleccionar ${row.cuenta}`}
+                      onChange={() => toggleRowSelection(row.id)}
+                    />
+                  </td>
                   <td>{renderEditableCell(row, 'cuenta')}</td>
                   <td>
                     {renderEditableCell(row, 'moneda')}
@@ -348,22 +494,28 @@ export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow }: Hold
                   </td>
                   <td>{renderEditableCell(row, 'monto')}</td>
                   <td>{renderEditableCell(row, 'cantidad')}</td>
+                  <td>{renderEditableCell(row, 'tags')}</td>
                   <td>{renderEditableCell(row, 'tipo')}</td>
                   <td>{formatUsd(conversion?.usdOficial ?? 0)}</td>
                   <td>{formatUsd(conversion?.usdFinanciero ?? 0)}</td>
                   <td>{renderEditableCell(row, 'subactivo')}</td>
                   <td>
-                    <button
-                      type="button"
-                      className="btn btn-danger-outline"
-                      onClick={() => {
-                        if (window.confirm(`¿Eliminar la fila de ${row.cuenta}?`)) {
-                          onDeleteRow(row.id)
-                        }
-                      }}
-                    >
-                      Eliminar
-                    </button>
+                    <div className="row-actions">
+                      <button type="button" className="btn btn-tertiary" onClick={() => onDuplicateRow(row.id)}>
+                        Duplicar
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-danger-outline"
+                        onClick={() => {
+                          if (window.confirm(`¿Eliminar la fila de ${row.cuenta}?`)) {
+                            onDeleteRow(row.id)
+                          }
+                        }}
+                      >
+                        Eliminar
+                      </button>
+                    </div>
                   </td>
                 </tr>
               )
@@ -371,7 +523,7 @@ export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow }: Hold
 
             {sortedRows.length === 0 ? (
               <tr>
-                <td colSpan={9}>
+                <td colSpan={11}>
                   <p className="empty-state">No hay filas para los filtros actuales.</p>
                 </td>
               </tr>
@@ -379,6 +531,78 @@ export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow }: Hold
           </tbody>
         </table>
       </div>
+
+      {isBulkEditOpen ? (
+        <div className="modal-backdrop" role="presentation">
+          <div className="modal" role="dialog" aria-modal="true" aria-label="Editar filas seleccionadas">
+            <h2>Editar {selectedCount} filas</h2>
+            <p className="modal-note">Solo se aplican los campos que completes.</p>
+
+            <div className="form-grid">
+              <label htmlFor="bulk-cuenta">Cuenta</label>
+              <input
+                id="bulk-cuenta"
+                value={bulkDraft.cuenta}
+                onChange={(event) => setBulkDraft((previous) => ({ ...previous, cuenta: event.target.value }))}
+              />
+
+              <label htmlFor="bulk-moneda">Moneda</label>
+              <input
+                id="bulk-moneda"
+                value={bulkDraft.moneda}
+                onChange={(event) => setBulkDraft((previous) => ({ ...previous, moneda: event.target.value }))}
+              />
+
+              <label htmlFor="bulk-tipo">Tipo</label>
+              <select
+                id="bulk-tipo"
+                value={bulkDraft.tipo}
+                onChange={(event) => setBulkDraft((previous) => ({ ...previous, tipo: event.target.value as BulkDraft['tipo'] }))}
+              >
+                <option value="">Sin cambio</option>
+                {HOLDING_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+
+              <label htmlFor="bulk-subactivo">Subactivo</label>
+              <input
+                id="bulk-subactivo"
+                value={bulkDraft.subactivo}
+                onChange={(event) => setBulkDraft((previous) => ({ ...previous, subactivo: event.target.value }))}
+              />
+
+              <label htmlFor="bulk-tags">Tags (coma)</label>
+              <input
+                id="bulk-tags"
+                value={bulkDraft.tags}
+                onChange={(event) => setBulkDraft((previous) => ({ ...previous, tags: event.target.value }))}
+                placeholder="largo plazo, liquidez"
+              />
+            </div>
+
+            {bulkError ? <p className="error-text">{bulkError}</p> : null}
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn btn-tertiary"
+                onClick={() => {
+                  setIsBulkEditOpen(false)
+                  setBulkError(null)
+                }}
+              >
+                Cancelar
+              </button>
+              <button type="button" className="btn btn-primary" onClick={applyBulkEdit}>
+                Aplicar cambios
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   )
 }

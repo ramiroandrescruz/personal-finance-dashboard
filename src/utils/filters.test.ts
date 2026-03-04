@@ -3,9 +3,9 @@ import type { HoldingRow } from '../types'
 import { applyDashboardFilters, DEFAULT_DASHBOARD_FILTERS } from './filters'
 
 const rows: HoldingRow[] = [
-  { id: '1', cuenta: 'Binance', moneda: 'USD', monto: 1000, cantidad: null, tipo: 'Crypto', subactivo: 'BTC' },
-  { id: '2', cuenta: 'Broker', moneda: 'ARS', monto: 2000, cantidad: null, tipo: 'Investments', subactivo: 'SPY' },
-  { id: '3', cuenta: 'Wallet', moneda: 'USD', monto: 800, cantidad: null, tipo: 'Crypto', subactivo: 'USDT' }
+  { id: '1', cuenta: 'Binance', moneda: 'USD', monto: 1000, cantidad: null, tags: ['largo plazo'], tipo: 'Crypto', subactivo: 'BTC' },
+  { id: '2', cuenta: 'Broker', moneda: 'ARS', monto: 2000, cantidad: null, tags: ['cedears'], tipo: 'Investments', subactivo: 'SPY' },
+  { id: '3', cuenta: 'Wallet', moneda: 'USD', monto: 800, cantidad: null, tags: ['liquidez'], tipo: 'Crypto', subactivo: 'USDT' }
 ]
 
 describe('applyDashboardFilters', () => {
@@ -28,5 +28,15 @@ describe('applyDashboardFilters', () => {
 
     expect(filtered).toHaveLength(2)
     expect(filtered.map((row) => row.subactivo)).toEqual(['BTC', 'SPY'])
+  })
+
+  it('filtra por tags', () => {
+    const filtered = applyDashboardFilters(rows, {
+      ...DEFAULT_DASHBOARD_FILTERS,
+      tagFilters: ['LIQUIDEZ']
+    })
+
+    expect(filtered).toHaveLength(1)
+    expect(filtered[0]?.id).toBe('3')
   })
 })

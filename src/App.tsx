@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AddRowModal } from './components/AddRowModal'
 import { AllocationAlertsHome } from './components/AllocationAlertsHome'
 import { AllocationTargetsPanel } from './components/AllocationTargetsPanel'
@@ -10,12 +10,13 @@ import { HoldingsTable } from './components/HoldingsTable'
 import { SettingsModal } from './components/SettingsModal'
 import { SnapshotHistorySection } from './components/SnapshotHistorySection'
 import { SummaryCards } from './components/SummaryCards'
+import { ToastStack } from './components/ToastStack'
 import { useHoldingsStore } from './hooks/useHoldingsStore'
-import type { HoldingType } from './types'
+import type { DashboardFilterState, HoldingType } from './types'
 import { buildDeviationRows } from './utils/allocation'
+import { clampTargetPercent } from './utils/allocationTargets'
 import { aggregateTotals, convertRowToUsd } from './utils/conversion'
 import { applyDashboardFilters, DEFAULT_DASHBOARD_FILTERS, type DashboardFilters } from './utils/filters'
-import { clampTargetPercent } from './utils/allocationTargets'
 import { getSnapshotDateKey } from './utils/snapshots'
 
 const EMPTY_TOTALS_BY_TYPE: Record<HoldingType, number> = {
@@ -27,6 +28,12 @@ const EMPTY_TOTALS_BY_TYPE: Record<HoldingType, number> = {
 
 type Theme = 'dark' | 'light'
 const THEME_STORAGE_KEY = 'pfd-theme'
+
+interface ToastItem {
+  id: string
+  message: string
+  tone?: 'info' | 'success' | 'error'
+}
 
 function App() {
   return (
@@ -51,26 +58,36 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
     settings,
     targets,
     snapshots,
+    savedViews,
     lastEditedAt,
     lastSavedAt,
     syncMode,
     cloudSyncError,
     lastCloudSyncAt,
     isCloudSyncing,
+    canUndo,
+    canRedo,
     addRow,
+    duplicateRow,
     updateRow,
+    bulkUpdateRows,
     deleteRow,
     restoreDemo,
     resetData,
     updateSettings,
     updateTargets,
-    addSnapshot
+    addSnapshot,
+    upsertSavedView,
+    deleteSavedView,
+    undo,
+    redo
   } = useHoldingsStore({ userId, cloudSyncEnabled })
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isAddRowOpen, setIsAddRowOpen] = useState(false)
   const [isTargetsOpen, setIsTargetsOpen] = useState(false)
   const [filters, setFilters] = useState<DashboardFilters>(DEFAULT_DASHBOARD_FILTERS)
+  const [toasts, setToasts] = useState<ToastItem[]>([])
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window === 'undefined') {
       return 'dark'
@@ -84,10 +101,66 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
     return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
   })
 
+  const pushToast = useCallback((message: string, tone: ToastItem['tone'] = 'info') => {
+    const toastId = `${Date.now()}-${Math.random().toString(16).slice(2)}`
+
+    setToasts((previous) => [...previous.slice(-3), { id: toastId, message, tone }])
+
+    window.setTimeout(() => {
+      setToasts((previous) => previous.filter((toast) => toast.id !== toastId))
+    }, 2600)
+  }, [])
+
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
     window.localStorage.setItem(THEME_STORAGE_KEY, theme)
   }, [theme])
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null
+      const isTypingField =
+        target !== null &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable)
+      const key = event.key.toLowerCase()
+      const withModifier = event.metaKey || event.ctrlKey
+
+      if (withModifier && !isTypingField && key === 'z' && !event.shiftKey) {
+        event.preventDefault()
+
+        if (undo()) {
+          pushToast('Deshacer aplicado', 'success')
+        }
+        return
+      }
+
+      if (withModifier && !isTypingField && (key === 'y' || (key === 'z' && event.shiftKey))) {
+        event.preventDefault()
+
+        if (redo()) {
+          pushToast('Rehacer aplicado', 'success')
+        }
+        return
+      }
+
+      if (withModifier && !isTypingField && key === 'n') {
+        event.preventDefault()
+        setIsAddRowOpen(true)
+        return
+      }
+
+      if (!withModifier && key === '/' && !isTypingField) {
+        event.preventDefault()
+        const search = document.getElementById('global-search') as HTMLInputElement | null
+        search?.focus()
+      }
+    }
+
+    window.addEventListener('keydown', handler)
+    return () => {
+      window.removeEventListener('keydown', handler)
+    }
+  }, [pushToast, redo, undo])
 
   const filteredRows = useMemo(() => applyDashboardFilters(rows, filters), [rows, filters])
 
@@ -99,6 +172,12 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
 
   const subassets = useMemo(() => {
     return Array.from(new Set(rows.map((row) => row.subactivo.trim().toUpperCase()).filter(Boolean))).sort((a, b) =>
+      a.localeCompare(b, 'es', { sensitivity: 'base' })
+    )
+  }, [rows])
+
+  const tags = useMemo(() => {
+    return Array.from(new Set(rows.flatMap((row) => row.tags.map((tag) => tag.trim())).filter(Boolean))).sort((a, b) =>
       a.localeCompare(b, 'es', { sensitivity: 'base' })
     )
   }, [rows])
@@ -199,6 +278,48 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
       arsUsdOficial: settings.arsUsdOficial,
       arsUsdFinanciero: settings.arsUsdFinanciero
     })
+    pushToast('Snapshot diario guardado', 'success')
+  }
+
+  const handleSaveCurrentView = (name: string) => {
+    const savedView = upsertSavedView({
+      name,
+      filters: filters as DashboardFilterState
+    })
+
+    if (!savedView) {
+      pushToast('Ingresá un nombre para guardar la vista', 'error')
+      return null
+    }
+
+    pushToast(`Vista "${savedView.name}" guardada`, 'success')
+    return savedView
+  }
+
+  const handleApplySavedView = (id: string) => {
+    const view = savedViews.find((item) => item.id === id)
+
+    if (!view) {
+      return
+    }
+
+    setFilters(view.filters as DashboardFilters)
+    pushToast(`Vista "${view.name}" aplicada`, 'success')
+  }
+
+  const handleDeleteSavedView = (id: string) => {
+    const view = savedViews.find((item) => item.id === id)
+
+    if (!view) {
+      return
+    }
+
+    if (!window.confirm(`¿Eliminar la vista guardada "${view.name}"?`)) {
+      return
+    }
+
+    deleteSavedView(id)
+    pushToast(`Vista "${view.name}" eliminada`)
   }
 
   return (
@@ -213,6 +334,18 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
           cloudSyncError={cloudSyncError}
           lastCloudSyncAt={lastCloudSyncAt}
           isCloudSyncing={isCloudSyncing}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onUndo={() => {
+            if (undo()) {
+              pushToast('Deshacer aplicado', 'success')
+            }
+          }}
+          onRedo={() => {
+            if (redo()) {
+              pushToast('Rehacer aplicado', 'success')
+            }
+          }}
           userEmail={email}
           onLogout={email ? onLogout : undefined}
           theme={theme}
@@ -221,11 +354,13 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
           onRestoreDemo={() => {
             if (window.confirm('Se van a restaurar las filas demo y las tasas por defecto. ¿Continuar?')) {
               restoreDemo()
+              pushToast('Se restauraron datos demo', 'success')
             }
           }}
           onResetData={() => {
             if (window.confirm('Esto elimina todos los holdings guardados localmente. ¿Continuar?')) {
               resetData()
+              pushToast('Datos reiniciados', 'success')
             }
           }}
         />
@@ -240,10 +375,15 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
           filters={filters}
           currencies={currencies}
           subassets={subassets}
+          tags={tags}
+          savedViews={savedViews}
           filteredRowsCount={filteredRows.length}
           totalRowsCount={rows.length}
           onFiltersChange={setFilters}
           onOpenAddModal={() => setIsAddRowOpen(true)}
+          onSaveCurrentView={handleSaveCurrentView}
+          onApplySavedView={handleApplySavedView}
+          onDeleteSavedView={handleDeleteSavedView}
         />
 
         <SummaryCards
@@ -265,8 +405,25 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
         <HoldingsTable
           rows={filteredRows}
           settings={settings}
-          onUpdateRow={updateRow}
-          onDeleteRow={deleteRow}
+          onUpdateRow={(id, patch) => {
+            updateRow(id, patch)
+            pushToast('Fila actualizada', 'success')
+          }}
+          onBulkUpdateRows={(ids, patch) => {
+            bulkUpdateRows(ids, patch)
+            pushToast(`Edición masiva aplicada (${ids.length})`, 'success')
+          }}
+          onDuplicateRow={(id) => {
+            const duplicated = duplicateRow(id)
+
+            if (duplicated) {
+              pushToast('Fila duplicada', 'success')
+            }
+          }}
+          onDeleteRow={(id) => {
+            deleteRow(id)
+            pushToast('Fila eliminada')
+          }}
         />
       </main>
 
@@ -274,7 +431,10 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
         isOpen={isSettingsOpen}
         settings={settings}
         onClose={() => setIsSettingsOpen(false)}
-        onSave={updateSettings}
+        onSave={(nextSettings) => {
+          updateSettings(nextSettings)
+          pushToast('Ajustes actualizados', 'success')
+        }}
       />
 
       <AddRowModal
@@ -283,7 +443,10 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
         currencyOptions={currencies}
         subassetOptions={subassets}
         onClose={() => setIsAddRowOpen(false)}
-        onCreate={addRow}
+        onCreate={(row) => {
+          addRow(row)
+          pushToast('Fila agregada', 'success')
+        }}
       />
 
       {isTargetsOpen ? (
@@ -293,12 +456,17 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
               byType={chartsData.byType}
               bySubasset={chartsData.bySubasset}
               targets={targets}
-              onTargetsChange={updateTargets}
+              onTargetsChange={(nextTargets) => {
+                updateTargets(nextTargets)
+                pushToast('Objetivos actualizados', 'success')
+              }}
               onClose={() => setIsTargetsOpen(false)}
             />
           </div>
         </div>
       ) : null}
+
+      <ToastStack toasts={toasts} />
     </div>
   )
 }

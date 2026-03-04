@@ -134,6 +134,11 @@ body {
   font-size: 0.8rem;
 }
 
+.header-actions .user-pill {
+  grid-column: 1 / -1;
+  max-width: 100%;
+}
+
 .muted-text {
   margin: 0.35rem 0 0;
   color: var(--muted);
@@ -147,9 +152,10 @@ body {
 }
 
 .header-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
 }
 
 .btn {
@@ -160,6 +166,7 @@ body {
   font-size: 0.87rem;
   cursor: pointer;
   transition: transform 0.18s ease, background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  min-height: 2.45rem;
 }
 
 .btn:hover {
@@ -169,6 +176,13 @@ body {
 
 .btn:active {
   transform: translateY(0);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .btn-primary {
@@ -218,6 +232,35 @@ body {
   background: rgba(127, 29, 29, 0.42);
 }
 
+.filters-presets-row {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.btn-preset {
+  padding-inline: 0.7rem;
+}
+
+.saved-views-row {
+  margin-top: 0.75rem;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.55rem;
+  align-items: end;
+}
+
+.saved-views-name,
+.saved-views-select {
+  min-width: 0;
+}
+
+.saved-views-name input,
+.saved-views-select select {
+  width: 100%;
+}
+
 .warning-banner {
   margin: 0;
   padding: 0.75rem 0.95rem;
@@ -239,7 +282,7 @@ body {
 .filters-grid {
   margin-top: 0.75rem;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 0.6rem;
   align-items: end;
 }
@@ -449,6 +492,22 @@ body {
   width: 100%;
 }
 
+.recharts-legend-wrapper {
+  line-height: 1.4;
+}
+
+.recharts-default-tooltip {
+  background: var(--tooltip-bg) !important;
+  border: 1px solid var(--tooltip-border) !important;
+  border-radius: 10px !important;
+  box-shadow: var(--tooltip-shadow) !important;
+}
+
+.recharts-tooltip-label,
+.recharts-tooltip-item {
+  color: var(--tooltip-text) !important;
+}
+
 .recharts-cartesian-axis-tick-value,
 .recharts-cartesian-axis-line,
 .recharts-cartesian-grid line {
@@ -472,6 +531,18 @@ body {
   margin-bottom: 0.25rem;
 }
 
+.table-bulk-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.table-bulk-toolbar .muted-text {
+  margin-right: auto;
+}
+
 .search-input,
 input,
 select {
@@ -492,7 +563,8 @@ select:hover {
 }
 
 .search-input {
-  min-width: min(72vw, 320px);
+  min-width: 0;
+  width: 100%;
 }
 
 .filter-label {
@@ -518,7 +590,7 @@ select:hover {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  min-width: 1080px;
+  min-width: 1280px;
 }
 
 .table-shell th,
@@ -580,6 +652,12 @@ select:hover {
   font-weight: 700;
   color: #fde68a;
   background: rgba(180, 83, 9, 0.6);
+}
+
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
 }
 
 .error-text {
@@ -842,7 +920,9 @@ select:hover {
 }
 
 .modal {
-  width: min(480px, 95vw);
+  width: min(560px, 96vw);
+  max-height: min(90vh, 760px);
+  overflow: auto;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--surface-strong);
@@ -874,7 +954,35 @@ select:hover {
   margin-top: 0.44rem;
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.toast-stack {
+  position: fixed;
+  right: 0.8rem;
+  bottom: calc(0.8rem + env(safe-area-inset-bottom));
+  z-index: 40;
+  display: grid;
+  gap: 0.5rem;
+  width: min(420px, calc(100vw - 1.6rem));
+}
+
+.toast-item {
+  border-radius: 11px;
+  border: 1px solid var(--line);
+  background: var(--surface-strong);
+  padding: 0.58rem 0.72rem;
+  box-shadow: var(--shadow);
+  font-size: 0.86rem;
+}
+
+.toast-item.is-success {
+  border-color: rgba(16, 185, 129, 0.45);
+}
+
+.toast-item.is-error {
+  border-color: rgba(239, 68, 68, 0.45);
 }
 
 .auth-screen {
@@ -921,9 +1029,21 @@ select:focus-visible {
 }
 
 @media (min-width: 740px) {
+  .header-actions {
+    width: auto;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.5rem;
+  }
+
   .dashboard {
     gap: 1rem;
     padding: 1.4rem 0 2.4rem;
+  }
+
+  .saved-views-row {
+    grid-template-columns: minmax(220px, 1fr) auto minmax(220px, 1fr) auto auto;
   }
 
   .filters-grid {
@@ -948,6 +1068,16 @@ select:focus-visible {
   }
 
   .chart-card-wide {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 560px) and (max-width: 739px) {
+  .filters-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filters-grid-wide {
     grid-column: 1 / -1;
   }
 }

@@ -8,6 +8,10 @@ interface AppHeaderProps {
   lastCloudSyncAt?: number | null
   isCloudSyncing?: boolean
   onOpenSettings: () => void
+  onUndo: () => void
+  onRedo: () => void
+  canUndo: boolean
+  canRedo: boolean
   onResetData: () => void
   onRestoreDemo: () => void
   theme: 'dark' | 'light'
@@ -24,6 +28,10 @@ export const AppHeader = ({
   lastCloudSyncAt,
   isCloudSyncing,
   onOpenSettings,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
   onResetData,
   onRestoreDemo,
   theme,
@@ -63,6 +71,18 @@ export const AppHeader = ({
         ) : null}
         <button type="button" className="btn btn-secondary" onClick={onOpenSettings}>
           Ajustes
+        </button>
+        <button type="button" className="btn btn-tertiary" onClick={onUndo} disabled={!canUndo} title="Ctrl/Cmd + Z">
+          Deshacer
+        </button>
+        <button
+          type="button"
+          className="btn btn-tertiary"
+          onClick={onRedo}
+          disabled={!canRedo}
+          title="Ctrl/Cmd + Shift + Z"
+        >
+          Rehacer
         </button>
         <button type="button" className="btn btn-tertiary" onClick={onToggleTheme}>
           Tema: {theme === 'dark' ? 'Oscuro' : 'Claro'}

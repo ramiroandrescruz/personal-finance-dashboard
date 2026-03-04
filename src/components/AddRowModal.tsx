@@ -2,6 +2,7 @@ import { type FormEvent, useEffect, useState } from 'react'
 import { HOLDING_TYPES } from '../types'
 import type { HoldingRow, HoldingType } from '../types'
 import { parseAmountInput } from '../utils/number'
+import { parseTagsInput } from '../utils/tags'
 
 interface AddRowModalProps {
   isOpen: boolean
@@ -14,9 +15,10 @@ interface AddRowModalProps {
 
 const NEW_OPTION_VALUE = '__NEW__'
 
-const initialDraft: { monto: string; cantidad: string; tipo: HoldingType } = {
+const initialDraft: { monto: string; cantidad: string; tags: string; tipo: HoldingType } = {
   monto: '0',
   cantidad: '',
+  tags: '',
   tipo: 'Cash'
 }
 
@@ -75,6 +77,7 @@ export const AddRowModal = ({
     const parsedAmount = parseAmountInput(draft.monto)
     const trimmedQuantity = draft.cantidad.trim()
     const parsedQuantity = trimmedQuantity ? parseAmountInput(trimmedQuantity) : null
+    const parsedTags = parseTagsInput(draft.tags)
 
     if (!cuenta) {
       setError('La cuenta es obligatoria.')
@@ -131,6 +134,7 @@ export const AddRowModal = ({
       moneda,
       monto: parsedAmount,
       cantidad: parsedQuantity,
+      tags: parsedTags,
       tipo: draft.tipo,
       subactivo
     })
@@ -198,6 +202,14 @@ export const AddRowModal = ({
             onChange={(event) => setDraft((previous) => ({ ...previous, cantidad: event.target.value }))}
             inputMode="decimal"
             placeholder="Ej: 0.1542 BTC o 25 shares"
+          />
+
+          <label htmlFor="add-tags">Tags (opcional)</label>
+          <input
+            id="add-tags"
+            value={draft.tags}
+            onChange={(event) => setDraft((previous) => ({ ...previous, tags: event.target.value }))}
+            placeholder="Ej: largo plazo, liquidez"
           />
 
           <label htmlFor="add-tipo">Tipo</label>

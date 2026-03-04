@@ -8,6 +8,7 @@ const baseRow: HoldingRow = {
   moneda: 'USD',
   monto: 100,
   cantidad: null,
+  tags: [],
   tipo: 'Cash',
   subactivo: 'USD'
 }
