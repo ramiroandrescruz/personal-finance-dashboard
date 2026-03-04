@@ -1,6 +1,7 @@
 import type { AllocationTargets, HoldingRow, HoldingsState, Settings } from '../types'
 
 export type HoldingsAction =
+  | { type: 'HYDRATE'; payload: { rows: HoldingRow[]; settings: Settings; targets: AllocationTargets } }
   | { type: 'ADD_ROW'; payload: HoldingRow }
   | { type: 'UPDATE_ROW'; payload: { id: string; patch: Partial<Omit<HoldingRow, 'id'>> } }
   | { type: 'DELETE_ROW'; payload: { id: string } }
@@ -15,6 +16,15 @@ const withEditTimestamp = (state: Omit<HoldingsState, 'lastEditedAt'>): Holdings
 
 export const holdingsReducer = (state: HoldingsState, action: HoldingsAction): HoldingsState => {
   switch (action.type) {
+    case 'HYDRATE': {
+      return {
+        rows: action.payload.rows,
+        settings: action.payload.settings,
+        targets: action.payload.targets,
+        lastEditedAt: null
+      }
+    }
+
     case 'ADD_ROW': {
       return withEditTimestamp({
         rows: [...state.rows, action.payload],

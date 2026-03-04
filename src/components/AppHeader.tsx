@@ -3,6 +3,10 @@ import { formatTime } from '../utils/number'
 interface AppHeaderProps {
   lastSavedAt: number | null
   lastEditedAt: number | null
+  syncMode: 'local' | 'firebase'
+  cloudSyncError?: string | null
+  lastCloudSyncAt?: number | null
+  isCloudSyncing?: boolean
   onOpenSettings: () => void
   onResetData: () => void
   onRestoreDemo: () => void
@@ -15,6 +19,10 @@ interface AppHeaderProps {
 export const AppHeader = ({
   lastSavedAt,
   lastEditedAt,
+  syncMode,
+  cloudSyncError,
+  lastCloudSyncAt,
+  isCloudSyncing,
   onOpenSettings,
   onResetData,
   onRestoreDemo,
@@ -23,13 +31,28 @@ export const AppHeader = ({
   userEmail,
   onLogout
 }: AppHeaderProps) => {
+  const persistenceLabel =
+    syncMode === 'firebase'
+      ? cloudSyncError
+        ? 'Sync Firebase con error'
+        : isCloudSyncing
+          ? 'Sincronizando Firebase...'
+          : 'Sync Firebase ✓'
+      : 'Guardado local ✓'
+
   return (
     <header className="dashboard-header">
       <div>
         <h1>Personal Finance Dashboard</h1>
         <p className="muted-text">
-          Guardado local ✓ · Última edición: {formatTime(lastEditedAt)} · Último guardado: {formatTime(lastSavedAt)}
+          {persistenceLabel} · Última edición: {formatTime(lastEditedAt)} · Último guardado: {formatTime(lastSavedAt)}
+          {syncMode === 'firebase' ? ` · Última sync cloud: ${formatTime(lastCloudSyncAt ?? lastSavedAt)}` : ''}
         </p>
+        {cloudSyncError ? (
+          <p className="sync-error-text" role="status">
+            Sync Firebase: {cloudSyncError}
+          </p>
+        ) : null}
       </div>
 
       <div className="header-actions">

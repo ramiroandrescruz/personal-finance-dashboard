@@ -14,6 +14,7 @@ interface AllocationTargetsPanelProps {
   bySubasset: DistributionPoint[]
   targets: AllocationTargets
   onTargetsChange: (targets: AllocationTargets) => void
+  onClose?: () => void
 }
 
 const sumValues = (values: number[]): number => values.reduce((accumulator, value) => accumulator + value, 0)
@@ -30,11 +31,17 @@ const updateTargetMap = (map: Record<string, number>, key: string, value: number
   return next
 }
 
-export const AllocationTargetsPanel = ({ byType, bySubasset, targets, onTargetsChange }: AllocationTargetsPanelProps) => {
+export const AllocationTargetsPanel = ({
+  byType,
+  bySubasset,
+  targets,
+  onTargetsChange,
+  onClose
+}: AllocationTargetsPanelProps) => {
   const threshold = clampTargetPercent(targets.alertThresholdPct)
 
   const typeRows = buildDeviationRows(byType, targets.byType, threshold)
-  const subassetRows = buildDeviationRows(bySubasset, targets.bySubasset, threshold)
+  const subassetRows = buildDeviationRows(bySubasset, targets.bySubasset, threshold, { onlyWithTarget: true })
 
   const alerts = summarizeAlerts([...typeRows, ...subassetRows])
 
@@ -53,23 +60,30 @@ export const AllocationTargetsPanel = ({ byType, bySubasset, targets, onTargetsC
           <p className="muted-text">Definí metas y detectá desvíos automáticamente</p>
         </div>
 
-        <div className="allocation-threshold">
-          <label htmlFor="alert-threshold">Umbral alerta (%)</label>
-          <input
-            id="alert-threshold"
-            type="number"
-            step="0.1"
-            min="0"
-            max="100"
-            value={formatPlainNumber(threshold).replace(',', '.')}
-            onChange={(event) => {
-              const parsed = Number(event.target.value)
-              onTargetsChange({
-                ...targets,
-                alertThresholdPct: clampTargetPercent(Number.isFinite(parsed) ? parsed : 0)
-              })
-            }}
-          />
+        <div className="allocation-header-actions">
+          <div className="allocation-threshold">
+            <label htmlFor="alert-threshold">Umbral alerta (%)</label>
+            <input
+              id="alert-threshold"
+              type="number"
+              step="0.1"
+              min="0"
+              max="100"
+              value={formatPlainNumber(threshold).replace(',', '.')}
+              onChange={(event) => {
+                const parsed = Number(event.target.value)
+                onTargetsChange({
+                  ...targets,
+                  alertThresholdPct: clampTargetPercent(Number.isFinite(parsed) ? parsed : 0)
+                })
+              }}
+            />
+          </div>
+          {onClose ? (
+            <button type="button" className="btn btn-tertiary" onClick={onClose}>
+              Cerrar
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -146,7 +160,9 @@ export const AllocationTargetsPanel = ({ byType, bySubasset, targets, onTargetsC
 
         <article className="allocation-card">
           <h3>Objetivos por Subactivo</h3>
-          <p className="muted-text">Suma objetivo: {formatPlainNumber(subassetTargetSum)}%</p>
+          <p className="muted-text">
+            Suma objetivo: {formatPlainNumber(subassetTargetSum)}% · opcional (solo alerta si tiene target)
+          </p>
 
           <div className="allocation-targets-list allocation-targets-list-subasset">
             {allSubassetKeys.length === 0 ? <p className="muted-text">No hay subactivos en los filtros actuales.</p> : null}

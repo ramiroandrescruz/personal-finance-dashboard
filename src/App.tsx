@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AddRowModal } from './components/AddRowModal'
+import { AllocationAlertsHome } from './components/AllocationAlertsHome'
 import { AllocationTargetsPanel } from './components/AllocationTargetsPanel'
 import { AppHeader } from './components/AppHeader'
 import { AuthGate } from './components/AuthGate'
@@ -10,8 +11,10 @@ import { SettingsModal } from './components/SettingsModal'
 import { SummaryCards } from './components/SummaryCards'
 import { useHoldingsStore } from './hooks/useHoldingsStore'
 import type { HoldingType } from './types'
+import { buildDeviationRows } from './utils/allocation'
 import { aggregateTotals, convertRowToUsd } from './utils/conversion'
 import { applyDashboardFilters, DEFAULT_DASHBOARD_FILTERS, type DashboardFilters } from './utils/filters'
+import { clampTargetPercent } from './utils/allocationTargets'
 
 const EMPTY_TOTALS_BY_TYPE: Record<HoldingType, number> = {
   Cash: 0,
@@ -24,21 +27,33 @@ type Theme = 'dark' | 'light'
 const THEME_STORAGE_KEY = 'pfd-theme'
 
 function App() {
-  return <AuthGate>{({ email, logout }) => <DashboardApp email={email} onLogout={logout} />}</AuthGate>
+  return (
+    <AuthGate>
+      {({ email, uid, logout, cloudSyncEnabled }) => (
+        <DashboardApp email={email} userId={uid} cloudSyncEnabled={cloudSyncEnabled} onLogout={logout} />
+      )}
+    </AuthGate>
+  )
 }
 
 interface DashboardAppProps {
   email?: string
+  userId?: string
+  cloudSyncEnabled: boolean
   onLogout?: () => void
 }
 
-function DashboardApp({ email, onLogout }: DashboardAppProps) {
+function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAppProps) {
   const {
     rows,
     settings,
     targets,
     lastEditedAt,
     lastSavedAt,
+    syncMode,
+    cloudSyncError,
+    lastCloudSyncAt,
+    isCloudSyncing,
     addRow,
     updateRow,
     deleteRow,
@@ -46,10 +61,11 @@ function DashboardApp({ email, onLogout }: DashboardAppProps) {
     resetData,
     updateSettings,
     updateTargets
-  } = useHoldingsStore()
+  } = useHoldingsStore({ userId, cloudSyncEnabled })
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isAddRowOpen, setIsAddRowOpen] = useState(false)
+  const [isTargetsOpen, setIsTargetsOpen] = useState(false)
   const [filters, setFilters] = useState<DashboardFilters>(DEFAULT_DASHBOARD_FILTERS)
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window === 'undefined') {
@@ -130,6 +146,22 @@ function DashboardApp({ email, onLogout }: DashboardAppProps) {
     }
   }, [filteredRows, settings])
 
+  const thresholdPct = clampTargetPercent(targets.alertThresholdPct)
+
+  const allocationAlerts = useMemo(() => {
+    const typeAlerts = buildDeviationRows(chartsData.byType, targets.byType, thresholdPct)
+      .filter((row) => row.isAlert)
+      .map((row) => ({ ...row, scope: 'Tipo' as const }))
+
+    const subassetAlerts = buildDeviationRows(chartsData.bySubasset, targets.bySubasset, thresholdPct, {
+      onlyWithTarget: true
+    })
+      .filter((row) => row.isAlert)
+      .map((row) => ({ ...row, scope: 'Subactivo' as const }))
+
+    return [...typeAlerts, ...subassetAlerts].sort((left, right) => Math.abs(right.deviationPct) - Math.abs(left.deviationPct))
+  }, [chartsData.bySubasset, chartsData.byType, targets.bySubasset, targets.byType, thresholdPct])
+
   return (
     <div className="app-shell">
       <div className="app-bg" aria-hidden="true" />
@@ -138,6 +170,10 @@ function DashboardApp({ email, onLogout }: DashboardAppProps) {
         <AppHeader
           lastSavedAt={lastSavedAt}
           lastEditedAt={lastEditedAt}
+          syncMode={syncMode}
+          cloudSyncError={cloudSyncError}
+          lastCloudSyncAt={lastCloudSyncAt}
+          isCloudSyncing={isCloudSyncing}
           userEmail={email}
           onLogout={email ? onLogout : undefined}
           theme={theme}
@@ -177,11 +213,10 @@ function DashboardApp({ email, onLogout }: DashboardAppProps) {
           totalsByType={totals.byType}
         />
 
-        <AllocationTargetsPanel
-          byType={chartsData.byType}
-          bySubasset={chartsData.bySubasset}
-          targets={targets}
-          onTargetsChange={updateTargets}
+        <AllocationAlertsHome
+          thresholdPct={thresholdPct}
+          alerts={allocationAlerts}
+          onOpenConfig={() => setIsTargetsOpen(true)}
         />
 
         <ChartsSection byType={chartsData.byType} bySubasset={chartsData.bySubasset} byAccount={chartsData.byAccount} />
@@ -209,6 +244,20 @@ function DashboardApp({ email, onLogout }: DashboardAppProps) {
         onClose={() => setIsAddRowOpen(false)}
         onCreate={addRow}
       />
+
+      {isTargetsOpen ? (
+        <div className="modal-backdrop" role="presentation">
+          <div className="allocation-modal-shell" role="dialog" aria-modal="true" aria-label="Configurar objetivos de asignación">
+            <AllocationTargetsPanel
+              byType={chartsData.byType}
+              bySubasset={chartsData.bySubasset}
+              targets={targets}
+              onTargetsChange={updateTargets}
+              onClose={() => setIsTargetsOpen(false)}
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

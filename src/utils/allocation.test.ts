@@ -30,6 +30,23 @@ describe('buildDeviationRows', () => {
     expect(rows.some((row) => row.name === 'ETH')).toBe(true)
     expect(rows.find((row) => row.name === 'ETH')?.currentPct).toBe(0)
   })
+
+  it('permite tratar subactivos como opcionales y solo evaluar los que tienen target', () => {
+    const rows = buildDeviationRows(
+      [
+        { name: 'USDT', value: 60 },
+        { name: 'BTC', value: 40 }
+      ],
+      { BTC: 25 },
+      5,
+      { onlyWithTarget: true }
+    )
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.name).toBe('BTC')
+    expect(rows[0]?.targetPct).toBe(25)
+    expect(rows[0]?.currentPct).toBe(40)
+  })
 })
 
 describe('summarizeAlerts', () => {

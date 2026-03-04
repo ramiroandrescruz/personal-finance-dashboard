@@ -26,6 +26,39 @@ const initialState: HoldingsState = {
 }
 
 describe('holdingsReducer', () => {
+  it('hidrata estado desde persistencia externa', () => {
+    const state = holdingsReducer(initialState, {
+      type: 'HYDRATE',
+      payload: {
+        rows: [
+          {
+            id: 'remote-1',
+            cuenta: 'Cuenta remota',
+            moneda: 'USD',
+            monto: 200,
+            tipo: 'Investments',
+            subactivo: 'SPY'
+          }
+        ],
+        settings: {
+          arsUsdOficial: 1500,
+          arsUsdFinanciero: 1700
+        },
+        targets: {
+          byType: { Investments: 60 },
+          bySubasset: { SPY: 30 },
+          alertThresholdPct: 3
+        }
+      }
+    })
+
+    expect(state.rows).toHaveLength(1)
+    expect(state.rows[0].id).toBe('remote-1')
+    expect(state.settings.arsUsdFinanciero).toBe(1700)
+    expect(state.targets.byType.Investments).toBe(60)
+    expect(state.lastEditedAt).toBeNull()
+  })
+
   it('agrega filas', () => {
     const state = holdingsReducer(initialState, {
       type: 'ADD_ROW',

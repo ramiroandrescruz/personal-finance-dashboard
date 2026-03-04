@@ -85,16 +85,17 @@ npm run preview
 - Los filtros globales impactan resumen + graficos + tabla
 - Sort por columnas funciona
 - Cambiar tasas en Ajustes recalcula USD
-- Refresh mantiene datos (persistencia local)
+- Refresh mantiene datos (persistencia local y sync cloud en deploy)
 - Graficos reaccionan a cambios
 - Donut por subactivo muestra porcentaje + valor USD financiero
 - Existe toggle de tema oscuro/claro
 - Objetivos de asignación por Tipo/Subactivo con alertas de desvío
+- Configuración de objetivos en modal separado y alertas resumidas en Home
 
-## Login restringido (solo deploy)
-En deploy (GitHub Pages), la app exige login de Google y permite solo `VITE_ALLOWED_EMAIL`.
+## Login restringido y sync cloud (solo deploy)
+En deploy (GitHub Pages), la app usa Firebase Auth (Google) y permite solo `VITE_ALLOWED_EMAIL`.
 
-En local (`localhost`, `127.0.0.1`, `::1`, `npm run dev`) el login se saltea automaticamente.
+En local (`localhost`, `127.0.0.1`, `::1`, `npm run dev`) el login se saltea automaticamente y usa solo persistencia local.
 
 ### Variables de entorno
 Copiar ejemplo:
@@ -106,20 +107,39 @@ cp .env.example .env.local
 Contenido esperado:
 
 ```bash
-VITE_GOOGLE_CLIENT_ID=tu-google-oauth-client-id.apps.googleusercontent.com
 VITE_ALLOWED_EMAIL=tu-email@gmail.com
+VITE_FIREBASE_API_KEY=tu-firebase-api-key
+VITE_FIREBASE_AUTH_DOMAIN=tu-proyecto.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=tu-project-id
+VITE_FIREBASE_STORAGE_BUCKET=tu-proyecto.firebasestorage.app
+VITE_FIREBASE_MESSAGING_SENDER_ID=tu-messaging-sender-id
+VITE_FIREBASE_APP_ID=tu-app-id
 # Opcional en local
 # VITE_BASE_PATH=/NOMBRE_REPO/
 ```
 
-### Configuracion Google Cloud (OAuth)
-1. Crear OAuth Client ID (tipo Web application).
-2. En `Authorized JavaScript origins` agregar:
-   - `http://localhost:5173`
-   - `https://<usuario>.github.io`
-3. Guardar Client ID y usarlo como `VITE_GOOGLE_CLIENT_ID`.
+### Configuracion Firebase (obligatoria para deploy)
+1. Firebase Console -> `Project settings` -> `General` -> registrar app Web.
+2. Firebase Console -> `Authentication` -> `Sign-in method` -> habilitar Google.
+3. Firebase Console -> `Authentication` -> `Settings` -> `Authorized domains`:
+   - `localhost`
+   - `<usuario>.github.io`
+4. Firebase Console -> `Firestore Database` -> crear DB (recomendado: `southamerica-east1`) en modo Production.
+5. Reglas de Firestore para restringir lectura/escritura al usuario autenticado:
 
-Importante: al no haber backend, esta restriccion protege UX/frontend, no recursos de servidor.
+```txt
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId}/dashboard/{docId} {
+      allow read, write: if request.auth != null
+        && request.auth.uid == userId
+        && request.auth.token.email_verified == true
+        && request.auth.token.email == "TU_EMAIL@gmail.com";
+    }
+  }
+}
+```
 
 ## Deploy en GitHub Pages
 El workflow esta en `.github/workflows/deploy.yml` y deploya al hacer push a `main`.
@@ -127,8 +147,15 @@ El workflow esta en `.github/workflows/deploy.yml` y deploya al hacer push a `ma
 ### Setup del repo
 1. GitHub -> `Settings` -> `Pages` -> `Source: GitHub Actions`.
 2. GitHub -> `Settings` -> `Secrets and variables` -> `Actions`:
-   - Secret: `VITE_GOOGLE_CLIENT_ID`
    - Variable: `VITE_ALLOWED_EMAIL`
+   - Secrets:
+     - `VITE_FIREBASE_API_KEY`
+     - `VITE_FIREBASE_AUTH_DOMAIN`
+     - `VITE_FIREBASE_PROJECT_ID`
+     - `VITE_FIREBASE_STORAGE_BUCKET`
+     - `VITE_FIREBASE_MESSAGING_SENDER_ID`
+     - `VITE_FIREBASE_APP_ID`
+     - `VITE_FIREBASE_MEASUREMENT_ID` (opcional)
 3. Push a `main`.
 4. Esperar workflow y abrir URL publicada.
 
@@ -147,8 +174,8 @@ VITE_BASE_PATH=/NOMBRE_REPO/ npm run build
 - React + TypeScript + Vite
 - Recharts
 - Vitest + Testing Library
-- localStorage con versionado de esquema
-- Google Identity Services (solo requerido en deploy)
+- Firebase Auth (Google) + Firestore (deploy)
+- localStorage con versionado de esquema + fallback local
 
 ## Estructura principal
 - `src/components`: componentes UI
@@ -156,7 +183,9 @@ VITE_BASE_PATH=/NOMBRE_REPO/ npm run build
 - `src/store/holdingsReducer.ts`: acciones CRUD
 - `src/utils/conversion.ts`: conversion y agregaciones para charts
 - `src/utils/number.ts`: parseo/formato de numeros
-- `src/utils/storage.ts`: persistencia versionada
+- `src/utils/storage.ts`: persistencia local versionada
+- `src/utils/firebaseStorage.ts`: persistencia remota en Firestore
+- `src/lib/firebase.ts`: inicializacion Firebase
 - `src/data/demo.ts`: seed demo
 
 ## Extensibilidad

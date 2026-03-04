@@ -18,12 +18,18 @@ export interface AllocationDeviationRow {
 
 const round2 = (value: number): number => Math.round(value * 100) / 100
 
+interface BuildDeviationRowsOptions {
+  onlyWithTarget?: boolean
+}
+
 export const buildDeviationRows = (
   distribution: DistributionPoint[],
   targets: TargetsMap,
-  thresholdPct: number
+  thresholdPct: number,
+  options: BuildDeviationRowsOptions = {}
 ): AllocationDeviationRow[] => {
   const safeThreshold = Number.isFinite(thresholdPct) && thresholdPct >= 0 ? thresholdPct : 0
+  const onlyWithTarget = options.onlyWithTarget ?? false
   const totalUsd = distribution.reduce((accumulator, row) => accumulator + row.value, 0)
 
   const currentMap = new Map(distribution.map((row) => [row.name, row.value]))
@@ -46,7 +52,7 @@ export const buildDeviationRows = (
         isAlert: hasSignal && Math.abs(deviationPct) >= safeThreshold
       }
     })
-    .filter((row) => row.currentPct > 0 || row.targetPct > 0)
+    .filter((row) => (onlyWithTarget ? row.targetPct > 0 : row.currentPct > 0 || row.targetPct > 0))
     .sort((a, b) => Math.abs(b.deviationPct) - Math.abs(a.deviationPct))
 }
 

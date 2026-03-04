@@ -1,253 +1,178 @@
-import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  GoogleAuthProvider,
+  browserSessionPersistence,
+  onAuthStateChanged,
+  setPersistence,
+  signInWithPopup,
+  signOut
+} from 'firebase/auth'
+import { getFirebaseAuth, isFirebaseConfigured } from '../lib/firebase'
 
 interface AuthGateProps {
-  children: (auth: { email: string; logout: () => void }) => ReactNode
-}
-
-interface GoogleJwtPayload {
-  email?: string
-  email_verified?: boolean
-  exp?: number
-}
-
-interface StoredSession {
-  email: string
-  exp: number
+  children: (auth: { email?: string; uid?: string; logout?: () => void; cloudSyncEnabled: boolean }) => ReactNode
 }
 
 type AuthStatus = 'loading' | 'ready' | 'authorized' | 'denied' | 'misconfigured' | 'error'
 
-const STORAGE_KEY = 'pfd-auth-session-v1'
-
-const loadGoogleIdentityScript = async (): Promise<void> => {
-  if (window.google?.accounts?.id) {
-    return
+const toAuthErrorMessage = (error: unknown): string => {
+  if (!(error instanceof Error)) {
+    return 'No se pudo completar el login con Google.'
   }
 
-  await new Promise<void>((resolve, reject) => {
-    const existingScript = document.querySelector<HTMLScriptElement>('script[data-google-identity="true"]')
-
-    if (existingScript) {
-      existingScript.addEventListener('load', () => resolve(), { once: true })
-      existingScript.addEventListener('error', () => reject(new Error('No se pudo cargar Google Identity Services')), {
-        once: true
-      })
-      return
-    }
-
-    const script = document.createElement('script')
-    script.src = 'https://accounts.google.com/gsi/client'
-    script.async = true
-    script.defer = true
-    script.dataset.googleIdentity = 'true'
-    script.onload = () => resolve()
-    script.onerror = () => reject(new Error('No se pudo cargar Google Identity Services'))
-    document.head.appendChild(script)
-  })
-}
-
-const decodeJwtPayload = (token: string): GoogleJwtPayload | null => {
-  try {
-    const [, payload] = token.split('.')
-
-    if (!payload) {
-      return null
-    }
-
-    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/')
-    const padding = '='.repeat((4 - (normalized.length % 4)) % 4)
-    const encodedPayload = normalized + padding
-    const decoded = window.atob(encodedPayload)
-    const parsed = JSON.parse(decoded) as GoogleJwtPayload
-
-    return parsed
-  } catch {
-    return null
-  }
-}
-
-const readSession = (): StoredSession | null => {
-  const raw = sessionStorage.getItem(STORAGE_KEY)
-
-  if (!raw) {
-    return null
+  if (error.message.includes('auth/popup-closed-by-user')) {
+    return 'Se cerró la ventana de login antes de completar la autenticación.'
   }
 
-  try {
-    const parsed = JSON.parse(raw) as StoredSession
-
-    if (typeof parsed.email !== 'string' || typeof parsed.exp !== 'number') {
-      return null
-    }
-
-    return parsed
-  } catch {
-    return null
+  if (error.message.includes('auth/popup-blocked')) {
+    return 'El navegador bloqueó la ventana de login. Permití popups y reintentá.'
   }
-}
 
-const saveSession = (session: StoredSession): void => {
-  sessionStorage.setItem(STORAGE_KEY, JSON.stringify(session))
-}
-
-const clearSession = (): void => {
-  sessionStorage.removeItem(STORAGE_KEY)
+  return error.message
 }
 
 export const AuthGate = ({ children }: AuthGateProps) => {
   const allowedEmail = import.meta.env.VITE_ALLOWED_EMAIL?.trim().toLowerCase() ?? ''
-  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() ?? ''
   const isLocalHost =
     typeof window !== 'undefined' &&
     ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname.toLowerCase())
   const bypassAuth = import.meta.env.DEV || isLocalHost
+  const firebaseAuth = useMemo(() => getFirebaseAuth(), [])
 
   const [status, setStatus] = useState<AuthStatus>(bypassAuth ? 'authorized' : 'loading')
   const [currentEmail, setCurrentEmail] = useState<string>('')
+  const [currentUid, setCurrentUid] = useState<string>('')
   const [errorMessage, setErrorMessage] = useState<string>('')
-  const buttonContainerRef = useRef<HTMLDivElement>(null)
-  const isGoogleInitializedRef = useRef(false)
+  const [isSigningIn, setIsSigningIn] = useState(false)
 
   const logout = useCallback(() => {
-    clearSession()
-    setCurrentEmail('')
-    setErrorMessage('')
-    setStatus('ready')
-
-    if (window.google?.accounts?.id) {
-      window.google.accounts.id.disableAutoSelect()
-      window.google.accounts.id.prompt()
+    if (!firebaseAuth) {
+      setStatus('ready')
+      return
     }
-  }, [])
 
-  const authorize = useCallback((email: string, exp: number) => {
-    setCurrentEmail(email)
-    setErrorMessage('')
-    saveSession({ email, exp })
-    setStatus('authorized')
-  }, [])
-
-  const deny = useCallback((message: string) => {
-    clearSession()
-    setCurrentEmail('')
-    setErrorMessage(message)
-    setStatus('denied')
-  }, [])
+    void signOut(firebaseAuth).finally(() => {
+      setCurrentEmail('')
+      setCurrentUid('')
+      setErrorMessage('')
+      setStatus('ready')
+    })
+  }, [firebaseAuth])
 
   useEffect(() => {
-    let disposed = false
+    if (bypassAuth) {
+      setStatus('authorized')
+      return
+    }
 
-    const initialize = async () => {
-      if (bypassAuth) {
-        setStatus('authorized')
-        return
-      }
+    if (!allowedEmail || !isFirebaseConfigured() || !firebaseAuth) {
+      setStatus('misconfigured')
+      return
+    }
 
-      if (!clientId || !allowedEmail) {
-        setStatus('misconfigured')
-        return
-      }
+    let isDisposed = false
 
-      const session = readSession()
+    void setPersistence(firebaseAuth, browserSessionPersistence).catch(() => {
+      // Session persistence best-effort.
+    })
 
-      if (session && session.email.toLowerCase() === allowedEmail && session.exp * 1000 > Date.now()) {
-        authorize(session.email, session.exp)
-        return
-      }
-
-      try {
-        await loadGoogleIdentityScript()
-
-        if (disposed) {
+    const unsubscribe = onAuthStateChanged(
+      firebaseAuth,
+      async (user) => {
+        if (isDisposed) {
           return
         }
 
-        const googleId = window.google?.accounts?.id
-
-        if (!googleId) {
-          setStatus('error')
-          setErrorMessage('Google Sign-In no está disponible en este navegador.')
+        if (!user) {
+          setCurrentEmail('')
+          setCurrentUid('')
+          setStatus('ready')
           return
         }
 
-        googleId.initialize({
-          client_id: clientId,
-          callback: (response) => {
-            const payload = decodeJwtPayload(response.credential)
+        const normalizedEmail = user.email?.toLowerCase()
 
-            if (!payload?.email || !payload.email_verified) {
-              deny('No se pudo verificar el email de la cuenta de Google.')
-              return
-            }
-
-            const normalizedEmail = payload.email.toLowerCase()
-
-            if (normalizedEmail !== allowedEmail) {
-              deny(`Acceso denegado para ${payload.email}. Esta app permite solo una cuenta.`)
-              return
-            }
-
-            authorize(payload.email, payload.exp ?? Math.floor(Date.now() / 1000) + 3600)
+        if (!normalizedEmail || !user.emailVerified) {
+          await signOut(firebaseAuth)
+          if (!isDisposed) {
+            setErrorMessage('No se pudo verificar el email de la cuenta autenticada.')
+            setStatus('denied')
           }
-        })
+          return
+        }
 
-        isGoogleInitializedRef.current = true
-        setStatus('ready')
-      } catch (error) {
-        if (disposed) {
+        if (normalizedEmail !== allowedEmail) {
+          await signOut(firebaseAuth)
+          if (!isDisposed) {
+            setErrorMessage(`Acceso denegado para ${user.email}. Esta app permite solo una cuenta.`)
+            setStatus('denied')
+          }
+          return
+        }
+
+        setCurrentEmail(user.email ?? normalizedEmail)
+        setCurrentUid(user.uid)
+        setErrorMessage('')
+        setStatus('authorized')
+      },
+      (error) => {
+        if (isDisposed) {
           return
         }
 
         setStatus('error')
-        setErrorMessage(error instanceof Error ? error.message : 'Error desconocido al inicializar Google Sign-In')
+        setErrorMessage(toAuthErrorMessage(error))
       }
-    }
-
-    void initialize()
+    )
 
     return () => {
-      disposed = true
+      isDisposed = true
+      unsubscribe()
     }
-  }, [allowedEmail, authorize, bypassAuth, clientId, deny])
+  }, [allowedEmail, bypassAuth, firebaseAuth])
 
-  useEffect(() => {
-    if (!isGoogleInitializedRef.current || !buttonContainerRef.current) {
+  const handleSignIn = useCallback(async () => {
+    if (!firebaseAuth) {
+      setStatus('misconfigured')
       return
     }
 
-    if (status === 'authorized' || status === 'misconfigured' || status === 'error') {
-      return
+    const provider = new GoogleAuthProvider()
+    provider.setCustomParameters({ prompt: 'select_account' })
+
+    setIsSigningIn(true)
+    setErrorMessage('')
+
+    try {
+      await signInWithPopup(firebaseAuth, provider)
+      setStatus('loading')
+    } catch (error) {
+      setStatus('ready')
+      setErrorMessage(toAuthErrorMessage(error))
+    } finally {
+      setIsSigningIn(false)
     }
-
-    const googleId = window.google?.accounts?.id
-
-    if (!googleId) {
-      return
-    }
-
-    buttonContainerRef.current.innerHTML = ''
-
-    googleId.renderButton(buttonContainerRef.current, {
-      theme: 'outline',
-      size: 'large',
-      shape: 'pill',
-      text: 'signin_with',
-      width: 280
-    })
-
-    googleId.prompt()
-  }, [status])
+  }, [firebaseAuth])
 
   if (status === 'authorized') {
-    return <>{children({ email: currentEmail, logout })}</>
+    return (
+      <>
+        {children({
+          email: bypassAuth ? undefined : currentEmail,
+          uid: bypassAuth ? undefined : currentUid,
+          logout: bypassAuth ? undefined : logout,
+          cloudSyncEnabled: !bypassAuth
+        })}
+      </>
+    )
   }
 
   if (status === 'misconfigured') {
     return (
       <main className="auth-screen">
         <section className="auth-card" aria-live="polite">
-          <h1>Configuración incompleta de login</h1>
-          <p>Definí `VITE_GOOGLE_CLIENT_ID` y `VITE_ALLOWED_EMAIL` para habilitar el acceso.</p>
+          <h1>Configuración incompleta de Firebase</h1>
+          <p>Definí `VITE_ALLOWED_EMAIL` y todas las variables `VITE_FIREBASE_*` para habilitar acceso en deploy.</p>
         </section>
       </main>
     )
@@ -258,10 +183,11 @@ export const AuthGate = ({ children }: AuthGateProps) => {
       <section className="auth-card" aria-live="polite">
         <h1>Ingresar al dashboard</h1>
         <p>Acceso restringido al email autorizado.</p>
-        <div ref={buttonContainerRef} className="google-signin-slot" />
-
-        {status === 'loading' ? <p className="muted-text">Cargando Google Sign-In...</p> : null}
-        {status === 'denied' || status === 'error' ? <p className="error-text">{errorMessage}</p> : null}
+        <button type="button" className="btn btn-primary" onClick={handleSignIn} disabled={isSigningIn || status === 'loading'}>
+          {isSigningIn ? 'Abriendo Google...' : 'Ingresar con Google'}
+        </button>
+        {status === 'loading' ? <p className="muted-text">Inicializando autenticación...</p> : null}
+        {errorMessage ? <p className="warning-banner">{errorMessage}</p> : null}
       </section>
     </main>
   )

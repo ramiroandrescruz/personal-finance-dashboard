@@ -137,6 +137,20 @@ const migrate = (payload: unknown): PersistedDashboard | null => {
   return null
 }
 
+export const parsePersistedDashboard = (payload: unknown): PersistedDashboard | null => {
+  return migrate(payload)
+}
+
+export const serializePersistedDashboard = (data: PersistedDashboard): PersistedDashboardV2 => {
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    rows: data.rows,
+    settings: data.settings,
+    targets: sanitizeTargets(data.targets),
+    updatedAt: data.updatedAt ?? Date.now()
+  }
+}
+
 const defaultPersistedDashboard = (): PersistedDashboard => ({
   rows: cloneDemoRows(),
   settings: { ...DEFAULT_SETTINGS },
@@ -153,7 +167,7 @@ export const loadDashboardData = (): PersistedDashboard => {
     }
 
     const parsed = JSON.parse(raw) as unknown
-    const migrated = migrate(parsed)
+    const migrated = parsePersistedDashboard(parsed)
 
     if (migrated) {
       return migrated
@@ -166,13 +180,7 @@ export const loadDashboardData = (): PersistedDashboard => {
 }
 
 export const saveDashboardData = (data: PersistedDashboard): void => {
-  const payload: PersistedDashboardV2 = {
-    schemaVersion: SCHEMA_VERSION,
-    rows: data.rows,
-    settings: data.settings,
-    targets: sanitizeTargets(data.targets),
-    updatedAt: data.updatedAt ?? Date.now()
-  }
+  const payload = serializePersistedDashboard(data)
 
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
 }
