@@ -201,6 +201,17 @@ body {
   -webkit-text-fill-color: currentColor;
 }
 
+.btn.is-disabled {
+  opacity: 1;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  color: var(--muted);
+  background: var(--input-bg);
+  border-color: var(--line);
+  -webkit-text-fill-color: currentColor;
+}
+
 .btn-primary {
   color: #072035;
   background: linear-gradient(135deg, #22d3ee, #0ea5e9);

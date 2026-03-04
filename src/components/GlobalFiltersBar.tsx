@@ -217,8 +217,8 @@ export const GlobalFiltersBar = ({
 
         <button
           type="button"
-          className="btn btn-tertiary"
-          disabled={!selectedViewId}
+          className={`btn btn-tertiary ${!selectedViewId ? 'is-disabled' : ''}`}
+          aria-disabled={!selectedViewId}
           onClick={() => {
             if (!selectedViewId) {
               return
@@ -232,8 +232,8 @@ export const GlobalFiltersBar = ({
 
         <button
           type="button"
-          className="btn btn-danger-outline"
-          disabled={!selectedViewId}
+          className={`btn btn-danger-outline ${!selectedViewId ? 'is-disabled' : ''}`}
+          aria-disabled={!selectedViewId}
           onClick={() => {
             if (!selectedViewId) {
               return
@@ -306,9 +306,9 @@ export const GlobalFiltersBar = ({
         </p>
         <button
           type="button"
-          className="btn btn-tertiary"
+          className={`btn btn-tertiary ${!hasActiveFilters ? 'is-disabled' : ''}`}
+          aria-disabled={!hasActiveFilters}
           onClick={() => onFiltersChange(cloneFilters(DEFAULT_DASHBOARD_FILTERS))}
-          disabled={!hasActiveFilters}
         >
           Limpiar filtros
         </button>

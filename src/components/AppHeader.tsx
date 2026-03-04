@@ -70,14 +70,32 @@ export const AppHeader = ({
         <button type="button" className="btn btn-secondary" onClick={onOpenSettings}>
           Ajustes
         </button>
-        <button type="button" className="btn btn-tertiary" onClick={onUndo} disabled={!canUndo} title="Ctrl/Cmd + Z">
+        <button
+          type="button"
+          className={`btn btn-tertiary ${!canUndo ? 'is-disabled' : ''}`}
+          aria-disabled={!canUndo}
+          onClick={() => {
+            if (!canUndo) {
+              return
+            }
+
+            onUndo()
+          }}
+          title="Ctrl/Cmd + Z"
+        >
           Deshacer
         </button>
         <button
           type="button"
-          className="btn btn-tertiary"
-          onClick={onRedo}
-          disabled={!canRedo}
+          className={`btn btn-tertiary ${!canRedo ? 'is-disabled' : ''}`}
+          aria-disabled={!canRedo}
+          onClick={() => {
+            if (!canRedo) {
+              return
+            }
+
+            onRedo()
+          }}
           title="Ctrl/Cmd + Shift + Z"
         >
           Rehacer
