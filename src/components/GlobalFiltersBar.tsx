@@ -14,7 +14,7 @@ interface GlobalFiltersBarProps {
   filteredRowsCount: number
   totalRowsCount: number
   onFiltersChange: (filters: DashboardFilters) => void
-  onOpenAddModal: () => void
+  onOpenAddMovement: () => void
   onSaveCurrentView: (name: string) => SavedDashboardView | null
   onApplySavedView: (id: string) => void
   onDeleteSavedView: (id: string) => void
@@ -127,7 +127,7 @@ export const GlobalFiltersBar = ({
   filteredRowsCount,
   totalRowsCount,
   onFiltersChange,
-  onOpenAddModal,
+  onOpenAddMovement,
   onSaveCurrentView,
   onApplySavedView,
   onDeleteSavedView
@@ -312,8 +312,8 @@ export const GlobalFiltersBar = ({
         >
           Limpiar filtros
         </button>
-        <button type="button" className="btn btn-primary" onClick={onOpenAddModal}>
-          + Agregar fila
+        <button type="button" className="btn btn-primary" onClick={onOpenAddMovement}>
+          + Agregar movimiento
         </button>
       </div>
     </section>

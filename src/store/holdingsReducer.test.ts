@@ -3,6 +3,7 @@ import { holdingsReducer } from './holdingsReducer'
 import type { HoldingsState } from '../types'
 
 const initialState: HoldingsState = {
+  transactions: [],
   rows: [
     {
       id: '1',
@@ -46,6 +47,22 @@ describe('holdingsReducer', () => {
             subactivo: 'SPY'
           }
         ],
+        transactions: [
+          {
+            id: 'tx-1',
+            date: '2026-03-04',
+            kind: 'OPENING',
+            cuenta: 'Cuenta remota',
+            moneda: 'USD',
+            monto: 200,
+            cantidad: 2,
+            tipo: 'Investments',
+            subactivo: 'SPY',
+            tags: ['core'],
+            note: 'migracion',
+            createdAt: 1
+          }
+        ],
         settings: {
           arsUsdOficial: 1500,
           arsUsdFinanciero: 1700
@@ -61,7 +78,9 @@ describe('holdingsReducer', () => {
     })
 
     expect(state.rows).toHaveLength(1)
-    expect(state.rows[0].id).toBe('remote-1')
+    expect(state.rows[0]?.cuenta).toBe('Cuenta remota')
+    expect(state.rows[0]?.subactivo).toBe('SPY')
+    expect(state.transactions).toHaveLength(1)
     expect(state.settings.arsUsdFinanciero).toBe(1700)
     expect(state.targets.byType.Investments).toBe(60)
     expect(state.lastEditedAt).toBeNull()
@@ -85,6 +104,31 @@ describe('holdingsReducer', () => {
     expect(state.rows).toHaveLength(2)
     expect(state.rows[1].cuenta).toBe('Nueva')
     expect(state.lastEditedAt).not.toBeNull()
+  })
+
+  it('agrega movimientos y reconstruye filas', () => {
+    const state = holdingsReducer(initialState, {
+      type: 'ADD_MOVEMENT',
+      payload: {
+        id: 'tx-2',
+        date: '2026-03-05',
+        kind: 'IN',
+        cuenta: 'Binance',
+        moneda: 'USD',
+        monto: 1000,
+        cantidad: 0.05,
+        tipo: 'Crypto',
+        subactivo: 'BTC',
+        tags: ['core'],
+        note: '',
+        createdAt: 2
+      }
+    })
+
+    expect(state.transactions).toHaveLength(1)
+    expect(state.rows).toHaveLength(1)
+    expect(state.rows[0]?.monto).toBe(1000)
+    expect(state.rows[0]?.cantidad).toBe(0.05)
   })
 
   it('edita filas existentes', () => {

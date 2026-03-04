@@ -1,5 +1,6 @@
 import type {
   AllocationTargets,
+  HoldingMovement,
   HoldingRow,
   HoldingsState,
   PortfolioSnapshot,
@@ -7,18 +8,23 @@ import type {
   Settings
 } from '../types'
 import { upsertSnapshot } from '../utils/snapshots'
+import { normalizeMovement, rebuildRowsFromMovements } from '../utils/transactions'
 
 export type HoldingsAction =
   | {
       type: 'HYDRATE'
       payload: {
         rows: HoldingRow[]
+        transactions: HoldingMovement[]
         settings: Settings
         targets: AllocationTargets
         snapshots: PortfolioSnapshot[]
         savedViews: SavedDashboardView[]
       }
     }
+  | { type: 'ADD_MOVEMENT'; payload: HoldingMovement }
+  | { type: 'ADD_MOVEMENTS'; payload: HoldingMovement[] }
+  | { type: 'DELETE_MOVEMENT'; payload: { id: string } }
   | { type: 'ADD_ROW'; payload: HoldingRow }
   | { type: 'DUPLICATE_ROW'; payload: HoldingRow }
   | { type: 'UPDATE_ROW'; payload: { id: string; patch: Partial<Omit<HoldingRow, 'id'>> } }
@@ -28,7 +34,7 @@ export type HoldingsAction =
   | { type: 'SET_TARGETS'; payload: AllocationTargets }
   | { type: 'SET_SAVED_VIEWS'; payload: SavedDashboardView[] }
   | { type: 'UPSERT_SNAPSHOT'; payload: PortfolioSnapshot }
-  | { type: 'RESET_DATA'; payload: { rows: HoldingRow[]; settings: Settings; targets: AllocationTargets } }
+  | { type: 'RESET_DATA'; payload: { transactions: HoldingMovement[]; settings: Settings; targets: AllocationTargets } }
 
 const withEditTimestamp = (state: Omit<HoldingsState, 'lastEditedAt'>): HoldingsState => ({
   ...state,
@@ -38,8 +44,11 @@ const withEditTimestamp = (state: Omit<HoldingsState, 'lastEditedAt'>): Holdings
 export const holdingsReducer = (state: HoldingsState, action: HoldingsAction): HoldingsState => {
   switch (action.type) {
     case 'HYDRATE': {
+      const normalizedTransactions = action.payload.transactions.map(normalizeMovement)
+
       return {
-        rows: action.payload.rows,
+        rows: rebuildRowsFromMovements(normalizedTransactions),
+        transactions: normalizedTransactions,
         settings: action.payload.settings,
         targets: action.payload.targets,
         snapshots: action.payload.snapshots,
@@ -48,10 +57,73 @@ export const holdingsReducer = (state: HoldingsState, action: HoldingsAction): H
       }
     }
 
+    case 'ADD_MOVEMENT': {
+      const nextTransactions = [...state.transactions, normalizeMovement(action.payload)]
+
+      return withEditTimestamp({
+        rows: rebuildRowsFromMovements(nextTransactions),
+        transactions: nextTransactions,
+        settings: state.settings,
+        targets: state.targets,
+        snapshots: state.snapshots,
+        savedViews: state.savedViews
+      })
+    }
+
+    case 'ADD_MOVEMENTS': {
+      if (action.payload.length === 0) {
+        return state
+      }
+
+      const nextTransactions = [...state.transactions, ...action.payload.map(normalizeMovement)]
+
+      return withEditTimestamp({
+        rows: rebuildRowsFromMovements(nextTransactions),
+        transactions: nextTransactions,
+        settings: state.settings,
+        targets: state.targets,
+        snapshots: state.snapshots,
+        savedViews: state.savedViews
+      })
+    }
+
+    case 'DELETE_MOVEMENT': {
+      const linkedIds = new Set<string>()
+      const source = state.transactions.find((movement) => movement.id === action.payload.id)
+
+      if (!source) {
+        return state
+      }
+
+      linkedIds.add(source.id)
+
+      if (source.linkedMovementId) {
+        linkedIds.add(source.linkedMovementId)
+      }
+
+      state.transactions.forEach((movement) => {
+        if (movement.linkedMovementId && linkedIds.has(movement.linkedMovementId)) {
+          linkedIds.add(movement.id)
+        }
+      })
+
+      const nextTransactions = state.transactions.filter((movement) => !linkedIds.has(movement.id))
+
+      return withEditTimestamp({
+        rows: rebuildRowsFromMovements(nextTransactions),
+        transactions: nextTransactions,
+        settings: state.settings,
+        targets: state.targets,
+        snapshots: state.snapshots,
+        savedViews: state.savedViews
+      })
+    }
+
     case 'ADD_ROW':
     case 'DUPLICATE_ROW': {
       return withEditTimestamp({
         rows: [...state.rows, action.payload],
+        transactions: state.transactions,
         settings: state.settings,
         targets: state.targets,
         snapshots: state.snapshots,
@@ -80,6 +152,7 @@ export const holdingsReducer = (state: HoldingsState, action: HoldingsAction): H
 
       return withEditTimestamp({
         rows: nextRows,
+        transactions: state.transactions,
         settings: state.settings,
         targets: state.targets,
         snapshots: state.snapshots,
@@ -114,6 +187,7 @@ export const holdingsReducer = (state: HoldingsState, action: HoldingsAction): H
 
       return withEditTimestamp({
         rows: nextRows,
+        transactions: state.transactions,
         settings: state.settings,
         targets: state.targets,
         snapshots: state.snapshots,
@@ -130,6 +204,7 @@ export const holdingsReducer = (state: HoldingsState, action: HoldingsAction): H
 
       return withEditTimestamp({
         rows: nextRows,
+        transactions: state.transactions,
         settings: state.settings,
         targets: state.targets,
         snapshots: state.snapshots,
@@ -140,6 +215,7 @@ export const holdingsReducer = (state: HoldingsState, action: HoldingsAction): H
     case 'SET_SETTINGS': {
       return withEditTimestamp({
         rows: state.rows,
+        transactions: state.transactions,
         settings: action.payload,
         targets: state.targets,
         snapshots: state.snapshots,
@@ -150,6 +226,7 @@ export const holdingsReducer = (state: HoldingsState, action: HoldingsAction): H
     case 'SET_TARGETS': {
       return withEditTimestamp({
         rows: state.rows,
+        transactions: state.transactions,
         settings: state.settings,
         targets: action.payload,
         snapshots: state.snapshots,
@@ -160,6 +237,7 @@ export const holdingsReducer = (state: HoldingsState, action: HoldingsAction): H
     case 'SET_SAVED_VIEWS': {
       return withEditTimestamp({
         rows: state.rows,
+        transactions: state.transactions,
         settings: state.settings,
         targets: state.targets,
         snapshots: state.snapshots,
@@ -170,6 +248,7 @@ export const holdingsReducer = (state: HoldingsState, action: HoldingsAction): H
     case 'UPSERT_SNAPSHOT': {
       return withEditTimestamp({
         rows: state.rows,
+        transactions: state.transactions,
         settings: state.settings,
         targets: state.targets,
         snapshots: upsertSnapshot(state.snapshots, action.payload),
@@ -179,7 +258,8 @@ export const holdingsReducer = (state: HoldingsState, action: HoldingsAction): H
 
     case 'RESET_DATA': {
       return withEditTimestamp({
-        rows: action.payload.rows,
+        rows: rebuildRowsFromMovements(action.payload.transactions),
+        transactions: action.payload.transactions.map(normalizeMovement),
         settings: action.payload.settings,
         targets: action.payload.targets,
         snapshots: [],

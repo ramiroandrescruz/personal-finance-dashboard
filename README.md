@@ -1,9 +1,9 @@
 # Personal Finance Dashboard (SPA)
 
-Dashboard estatico para gestionar holdings personales con edicion inline, graficos y persistencia local. Listo para GitHub Pages.
+Dashboard estatico para gestionar finanzas personales con modelo de movimientos (entrada/salida/transferencia), posiciones reconstruidas, graficos y persistencia local/cloud. Listo para GitHub Pages.
 
-## Inicio rapido (modo dummy)
-Si solo queres levantarlo y probar:
+## Inicio rapido
+Si solo queres levantarlo:
 
 ```bash
 cd /Users/ramirocruz/Documents
@@ -59,7 +59,7 @@ npm test
 Incluye:
 - conversion ARS -> USD
 - parseo de montos con coma/punto
-- reducer/store (add/edit/delete)
+- reducer/store (movimientos + reconstruccion)
 
 ## Build de produccion
 Generar build:
@@ -76,11 +76,12 @@ npm run preview
 
 ## Checklist manual (validacion MVP)
 - Se ve bien en mobile (usar DevTools modo telefono)
-- Carga seed demo al primer inicio
-- Inline edit funciona (Enter guarda, Esc cancela)
-- Agregar fila funciona
-- Columna `Cantidad` editable/opcional (BTC, shares, etc.)
-- Eliminar fila con confirmacion funciona
+- No carga seed demo (arranca vacio si no hay datos)
+- Agregar movimiento (entrada/salida) funciona
+- Transferencia entre cuentas funciona
+- Eliminar movimiento con confirmacion funciona
+- La tabla de posiciones se reconstruye automaticamente desde movimientos
+- Columna `Cantidad` opcional (BTC, shares, etc.)
 - Search por cuenta/subactivo funciona
 - Filtros por tipo/moneda/tipo de subactivo/subactivo funcionan con seleccion multiple
 - Los filtros globales impactan resumen + graficos + tabla
@@ -183,14 +184,15 @@ VITE_BASE_PATH=/NOMBRE_REPO/ npm run build
 ## Estructura principal
 - `src/components`: componentes UI
 - `src/hooks/useHoldingsStore.ts`: store + autosave debounce
-- `src/store/holdingsReducer.ts`: acciones CRUD
+- `src/store/holdingsReducer.ts`: acciones de estado + movimientos
 - `src/utils/conversion.ts`: conversion y agregaciones para charts
 - `src/utils/number.ts`: parseo/formato de numeros
+- `src/utils/transactions.ts`: reconstruccion de posiciones desde movimientos
 - `src/utils/storage.ts`: persistencia local versionada
 - `src/utils/firebaseStorage.ts`: persistencia remota en Firestore
 - `src/utils/snapshots.ts`: logica de cierre manual y variaciones historicas
 - `src/lib/firebase.ts`: inicializacion Firebase
-- `src/data/demo.ts`: seed demo
+- `src/data/demo.ts`: defaults de configuracion
 
 ## Extensibilidad
 La capa de persistencia esta desacoplada para agregar import/export CSV/JSON sin reescribir reducer ni UI.

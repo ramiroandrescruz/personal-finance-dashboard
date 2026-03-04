@@ -1,7 +1,8 @@
-import { cloneDemoRows, DEFAULT_SETTINGS } from '../data/demo'
+import { DEFAULT_SETTINGS } from '../data/demo'
 import type {
   AllocationTargets,
   DashboardFilterState,
+  HoldingMovement,
   HoldingRow,
   PortfolioSnapshot,
   SavedDashboardView,
@@ -10,9 +11,10 @@ import type {
 import { HOLDING_TYPES } from '../types'
 import { DEFAULT_ALLOCATION_TARGETS, sanitizeTargets } from './allocationTargets'
 import { normalizeTags } from './tags'
+import { buildMovementsFromRows, isValidMovement, normalizeMovement, rebuildRowsFromMovements } from './transactions'
 
 const STORAGE_KEY = 'personal-finance-dashboard'
-const SCHEMA_VERSION = 4
+const SCHEMA_VERSION = 5
 
 type LegacyHoldingRow = Omit<HoldingRow, 'cantidad' | 'tags'> & {
   cantidad?: number | null
@@ -53,8 +55,20 @@ interface PersistedDashboardV4 {
   updatedAt: number
 }
 
+interface PersistedDashboardV5 {
+  schemaVersion: 5
+  rows: HoldingRow[]
+  transactions: HoldingMovement[]
+  settings: Settings
+  targets: AllocationTargets
+  snapshots: PortfolioSnapshot[]
+  savedViews: SavedDashboardView[]
+  updatedAt: number
+}
+
 export interface PersistedDashboard {
   rows: HoldingRow[]
+  transactions: HoldingMovement[]
   settings: Settings
   targets: AllocationTargets
   snapshots: PortfolioSnapshot[]
@@ -237,6 +251,7 @@ const migrateFromV1 = (candidate: PersistedDashboardV1): PersistedDashboard | nu
 
   return {
     rows: candidate.rows.map(normalizeRow),
+    transactions: buildMovementsFromRows(candidate.rows.map(normalizeRow), candidate.updatedAt ?? Date.now()),
     settings: { ...candidate.settings },
     targets: { ...DEFAULT_ALLOCATION_TARGETS, byType: {}, bySubasset: {} },
     snapshots: [],
@@ -257,6 +272,7 @@ const migrateFromV2 = (candidate: PersistedDashboardV2): PersistedDashboard | nu
 
   return {
     rows: candidate.rows.map(normalizeRow),
+    transactions: buildMovementsFromRows(candidate.rows.map(normalizeRow), candidate.updatedAt ?? Date.now()),
     settings: { ...candidate.settings },
     targets: sanitizeTargets(candidate.targets),
     snapshots: [],
@@ -279,6 +295,7 @@ const migrateFromV3 = (candidate: PersistedDashboardV3): PersistedDashboard | nu
 
   return {
     rows: candidate.rows.map(normalizeRow),
+    transactions: buildMovementsFromRows(candidate.rows.map(normalizeRow), candidate.updatedAt ?? Date.now()),
     settings: { ...candidate.settings },
     targets: sanitizeTargets(candidate.targets),
     snapshots: [...candidate.snapshots].sort((left, right) => left.date.localeCompare(right.date)),
@@ -303,6 +320,37 @@ const migrateFromV4 = (candidate: PersistedDashboardV4): PersistedDashboard | nu
 
   return {
     rows: candidate.rows.map(normalizeRow),
+    transactions: buildMovementsFromRows(candidate.rows.map(normalizeRow), candidate.updatedAt ?? Date.now()),
+    settings: { ...candidate.settings },
+    targets: sanitizeTargets(candidate.targets),
+    snapshots: [...candidate.snapshots].sort((left, right) => left.date.localeCompare(right.date)),
+    savedViews: candidate.savedViews.map(normalizeSavedView).sort((left, right) => left.name.localeCompare(right.name, 'es')),
+    updatedAt: typeof candidate.updatedAt === 'number' ? candidate.updatedAt : null
+  }
+}
+
+const migrateFromV5 = (candidate: PersistedDashboardV5): PersistedDashboard | null => {
+  if (
+    !Array.isArray(candidate.rows) ||
+    !candidate.rows.every((row) => isValidRow(row)) ||
+    !Array.isArray(candidate.transactions) ||
+    !candidate.transactions.every((movement) => isValidMovement(movement)) ||
+    !isValidSettings(candidate.settings) ||
+    !isValidTargets(candidate.targets) ||
+    !Array.isArray(candidate.snapshots) ||
+    !candidate.snapshots.every((snapshot) => isValidSnapshot(snapshot)) ||
+    !Array.isArray(candidate.savedViews) ||
+    !candidate.savedViews.every((view) => isValidSavedView(view))
+  ) {
+    return null
+  }
+
+  const normalizedTransactions = candidate.transactions.map(normalizeMovement)
+  const rebuiltRows = rebuildRowsFromMovements(normalizedTransactions)
+
+  return {
+    rows: rebuiltRows,
+    transactions: normalizedTransactions,
     settings: { ...candidate.settings },
     targets: sanitizeTargets(candidate.targets),
     snapshots: [...candidate.snapshots].sort((left, right) => left.date.localeCompare(right.date)),
@@ -334,6 +382,10 @@ const migrate = (payload: unknown): PersistedDashboard | null => {
     return migrateFromV4(payload as PersistedDashboardV4)
   }
 
+  if (candidate.schemaVersion === 5) {
+    return migrateFromV5(payload as PersistedDashboardV5)
+  }
+
   return null
 }
 
@@ -341,13 +393,17 @@ export const parsePersistedDashboard = (payload: unknown): PersistedDashboard | 
   return migrate(payload)
 }
 
-export const serializePersistedDashboard = (data: PersistedDashboard): PersistedDashboardV4 => {
+export const serializePersistedDashboard = (data: PersistedDashboard): PersistedDashboardV5 => {
+  const normalizedTransactions = data.transactions.map(normalizeMovement)
+  const rebuiltRows = rebuildRowsFromMovements(normalizedTransactions)
+
   return {
     schemaVersion: SCHEMA_VERSION,
-    rows: data.rows.map((row) => ({
+    rows: rebuiltRows.map((row) => ({
       ...row,
       tags: normalizeTags(row.tags)
     })),
+    transactions: normalizedTransactions,
     settings: data.settings,
     targets: sanitizeTargets(data.targets),
     snapshots: [...data.snapshots].sort((left, right) => left.date.localeCompare(right.date)),
@@ -357,7 +413,8 @@ export const serializePersistedDashboard = (data: PersistedDashboard): Persisted
 }
 
 const defaultPersistedDashboard = (): PersistedDashboard => ({
-  rows: cloneDemoRows(),
+  rows: [],
+  transactions: [],
   settings: { ...DEFAULT_SETTINGS },
   targets: { ...DEFAULT_ALLOCATION_TARGETS, byType: {}, bySubasset: {} },
   snapshots: [],

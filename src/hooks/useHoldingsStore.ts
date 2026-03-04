@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useReducer, useState } from 'react'
-import { cloneDemoRows, DEFAULT_SETTINGS } from '../data/demo'
+import { DEFAULT_SETTINGS } from '../data/demo'
 import { holdingsReducer, type HoldingsAction } from '../store/holdingsReducer'
 import type {
   AllocationTargets,
   DashboardFilterState,
+  HoldingMovement,
+  HoldingType,
   HoldingRow,
   HoldingsState,
   PortfolioSnapshot,
@@ -15,6 +17,7 @@ import { loadCloudDashboardData, saveCloudDashboardData } from '../utils/firebas
 import { getSnapshotDateKey } from '../utils/snapshots'
 import { loadDashboardData, saveDashboardData } from '../utils/storage'
 import { normalizeTags } from '../utils/tags'
+import { normalizeMovement } from '../utils/transactions'
 import { useDebouncedEffect } from './useDebouncedEffect'
 
 const createFallbackId = (): string => `${Date.now()}-${Math.random().toString(16).slice(2)}`
@@ -34,7 +37,34 @@ interface UseHoldingsStoreOptions {
   cloudSyncEnabled?: boolean
 }
 
+export interface MovementDraft {
+  date: string
+  kind: 'OPENING' | 'IN' | 'OUT'
+  cuenta: string
+  moneda: string
+  monto: number
+  cantidad: number | null
+  tipo: HoldingType
+  subactivo: string
+  tags: string[]
+  note?: string
+}
+
+export interface TransferDraft {
+  date: string
+  cuentaFrom: string
+  cuentaTo: string
+  moneda: string
+  monto: number
+  cantidad: number | null
+  tipo: HoldingType
+  subactivo: string
+  tags: string[]
+  note?: string
+}
+
 interface EditableStateSnapshot {
+  transactions: HoldingMovement[]
   rows: HoldingRow[]
   settings: Settings
   targets: AllocationTargets
@@ -62,6 +92,7 @@ const cloneSavedView = (view: SavedDashboardView): SavedDashboardView => ({
 })
 
 const cloneEditableState = (state: EditableStateSnapshot): EditableStateSnapshot => ({
+  transactions: state.transactions.map((movement) => ({ ...movement, tags: [...movement.tags] })),
   rows: state.rows.map((row) => ({ ...row, tags: [...row.tags] })),
   settings: { ...state.settings },
   targets: {
@@ -120,6 +151,7 @@ export const useHoldingsStore = ({ userId, cloudSyncEnabled = false }: UseHoldin
     holdingsReducer,
     initialPersisted,
     (persisted): HoldingsState => ({
+      transactions: persisted.transactions,
       rows: persisted.rows,
       settings: persisted.settings,
       targets: persisted.targets,
@@ -139,13 +171,14 @@ export const useHoldingsStore = ({ userId, cloudSyncEnabled = false }: UseHoldin
 
   const captureEditableState = useCallback((): EditableStateSnapshot => {
     return cloneEditableState({
+      transactions: state.transactions,
       rows: state.rows,
       settings: state.settings,
       targets: state.targets,
       snapshots: state.snapshots,
       savedViews: state.savedViews
     })
-  }, [state.rows, state.settings, state.targets, state.snapshots, state.savedViews])
+  }, [state.transactions, state.rows, state.settings, state.targets, state.snapshots, state.savedViews])
 
   const dispatchWithHistory = useCallback(
     (action: HoldingsAction) => {
@@ -208,6 +241,7 @@ export const useHoldingsStore = ({ userId, cloudSyncEnabled = false }: UseHoldin
             type: 'HYDRATE',
             payload: {
               rows: remote.rows,
+              transactions: remote.transactions,
               settings: remote.settings,
               targets: remote.targets,
               snapshots: remote.snapshots,
@@ -270,6 +304,7 @@ export const useHoldingsStore = ({ userId, cloudSyncEnabled = false }: UseHoldin
       const savedAt = Date.now()
       const payload = {
         rows: state.rows,
+        transactions: state.transactions,
         settings: state.settings,
         targets: state.targets,
         snapshots: state.snapshots,
@@ -299,87 +334,91 @@ export const useHoldingsStore = ({ userId, cloudSyncEnabled = false }: UseHoldin
         })
     },
     350,
-    [state.rows, state.settings, state.targets, state.snapshots, state.savedViews, cloudSyncEnabled, userId, isCloudReady]
+    [state.rows, state.transactions, state.settings, state.targets, state.snapshots, state.savedViews, cloudSyncEnabled, userId, isCloudReady]
   )
 
-  const addRow = useCallback(
-    (draft: Omit<HoldingRow, 'id'>) => {
+  const addMovement = useCallback(
+    (draft: MovementDraft) => {
+      const createdAt = Date.now()
+
       dispatchWithHistory({
-        type: 'ADD_ROW',
-        payload: {
-          ...draft,
+        type: 'ADD_MOVEMENT',
+        payload: normalizeMovement({
+          id: generateId(),
+          date: draft.date,
+          kind: draft.kind,
+          cuenta: draft.cuenta,
+          moneda: draft.moneda,
+          monto: draft.monto,
+          cantidad: draft.cantidad,
+          tipo: draft.tipo,
+          subactivo: draft.subactivo,
           tags: normalizeTags(draft.tags),
-          id: generateId()
-        }
+          note: draft.note?.trim() ?? '',
+          createdAt
+        })
       })
     },
     [dispatchWithHistory]
   )
 
-  const duplicateRow = useCallback(
-    (id: string): HoldingRow | null => {
-      const source = state.rows.find((row) => row.id === id)
+  const addTransferMovement = useCallback(
+    (draft: TransferDraft) => {
+      const createdAt = Date.now()
+      const transferOutId = generateId()
+      const transferInId = generateId()
 
-      if (!source) {
-        return null
-      }
-
-      const duplicated: HoldingRow = {
-        ...source,
-        id: generateId(),
-        cuenta: `${source.cuenta} (copia)`,
-        tags: [...source.tags]
-      }
-
-      dispatchWithHistory({ type: 'DUPLICATE_ROW', payload: duplicated })
-      return duplicated
-    },
-    [dispatchWithHistory, state.rows]
-  )
-
-  const updateRow = useCallback(
-    (id: string, patch: Partial<Omit<HoldingRow, 'id'>>) => {
-      const normalizedPatch = patch.tags ? { ...patch, tags: normalizeTags(patch.tags) } : patch
-      dispatchWithHistory({ type: 'UPDATE_ROW', payload: { id, patch: normalizedPatch } })
+      dispatchWithHistory({
+        type: 'ADD_MOVEMENTS',
+        payload: [
+          normalizeMovement({
+            id: transferOutId,
+            date: draft.date,
+            kind: 'TRANSFER_OUT',
+            cuenta: draft.cuentaFrom,
+            moneda: draft.moneda,
+            monto: draft.monto,
+            cantidad: draft.cantidad,
+            tipo: draft.tipo,
+            subactivo: draft.subactivo,
+            tags: normalizeTags(draft.tags),
+            note: draft.note?.trim() ?? '',
+            createdAt,
+            linkedMovementId: transferInId
+          }),
+          normalizeMovement({
+            id: transferInId,
+            date: draft.date,
+            kind: 'TRANSFER_IN',
+            cuenta: draft.cuentaTo,
+            moneda: draft.moneda,
+            monto: draft.monto,
+            cantidad: draft.cantidad,
+            tipo: draft.tipo,
+            subactivo: draft.subactivo,
+            tags: normalizeTags(draft.tags),
+            note: draft.note?.trim() ?? '',
+            createdAt,
+            linkedMovementId: transferOutId
+          })
+        ]
+      })
     },
     [dispatchWithHistory]
   )
 
-  const bulkUpdateRows = useCallback(
-    (ids: string[], patch: Partial<Omit<HoldingRow, 'id'>>) => {
-      if (ids.length === 0) {
-        return
-      }
-
-      const normalizedPatch = patch.tags ? { ...patch, tags: normalizeTags(patch.tags) } : patch
-      dispatchWithHistory({ type: 'BULK_UPDATE_ROWS', payload: { ids, patch: normalizedPatch } })
-    },
-    [dispatchWithHistory]
-  )
-
-  const deleteRow = useCallback(
+  const deleteMovement = useCallback(
     (id: string) => {
-      dispatchWithHistory({ type: 'DELETE_ROW', payload: { id } })
+      dispatchWithHistory({ type: 'DELETE_MOVEMENT', payload: { id } })
     },
     [dispatchWithHistory]
   )
-
-  const restoreDemo = useCallback(() => {
-    dispatchWithHistory({
-      type: 'RESET_DATA',
-      payload: {
-        rows: cloneDemoRows(),
-        settings: { ...DEFAULT_SETTINGS },
-        targets: { ...DEFAULT_ALLOCATION_TARGETS, byType: {}, bySubasset: {} }
-      }
-    })
-  }, [dispatchWithHistory])
 
   const resetData = useCallback(() => {
     dispatchWithHistory({
       type: 'RESET_DATA',
       payload: {
-        rows: [],
+        transactions: [],
         settings: { ...DEFAULT_SETTINGS },
         targets: { ...DEFAULT_ALLOCATION_TARGETS, byType: {}, bySubasset: {} }
       }
@@ -500,6 +539,7 @@ export const useHoldingsStore = ({ userId, cloudSyncEnabled = false }: UseHoldin
   }, [captureEditableState, future])
 
   return {
+    transactions: state.transactions,
     rows: state.rows,
     settings: state.settings,
     targets: state.targets,
@@ -513,12 +553,9 @@ export const useHoldingsStore = ({ userId, cloudSyncEnabled = false }: UseHoldin
     lastCloudSyncAt,
     canUndo: past.length > 0,
     canRedo: future.length > 0,
-    addRow,
-    duplicateRow,
-    updateRow,
-    bulkUpdateRows,
-    deleteRow,
-    restoreDemo,
+    addMovement,
+    addTransferMovement,
+    deleteMovement,
     resetData,
     updateSettings,
     updateTargets,

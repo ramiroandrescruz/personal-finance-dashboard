@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AddRowModal } from './components/AddRowModal'
 import { AllocationAlertsHome } from './components/AllocationAlertsHome'
 import { AllocationTargetsPanel } from './components/AllocationTargetsPanel'
 import { AppHeader } from './components/AppHeader'
 import { AuthGate } from './components/AuthGate'
 import { ChartsSection } from './components/ChartsSection'
 import { GlobalFiltersBar } from './components/GlobalFiltersBar'
-import { HoldingsTable } from './components/HoldingsTable'
+import { HoldingsSnapshotTable } from './components/HoldingsSnapshotTable'
+import { MovementsSection } from './components/MovementsSection'
 import { SettingsModal } from './components/SettingsModal'
 import { SnapshotHistorySection } from './components/SnapshotHistorySection'
 import { SummaryCards } from './components/SummaryCards'
@@ -54,6 +54,7 @@ interface DashboardAppProps {
 
 function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAppProps) {
   const {
+    transactions,
     rows,
     settings,
     targets,
@@ -67,12 +68,9 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
     isCloudSyncing,
     canUndo,
     canRedo,
-    addRow,
-    duplicateRow,
-    updateRow,
-    bulkUpdateRows,
-    deleteRow,
-    restoreDemo,
+    addMovement,
+    addTransferMovement,
+    deleteMovement,
     resetData,
     updateSettings,
     updateTargets,
@@ -84,7 +82,7 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
   } = useHoldingsStore({ userId, cloudSyncEnabled })
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
-  const [isAddRowOpen, setIsAddRowOpen] = useState(false)
+  const [isAddMovementOpen, setIsAddMovementOpen] = useState(false)
   const [isTargetsOpen, setIsTargetsOpen] = useState(false)
   const [filters, setFilters] = useState<DashboardFilters>(DEFAULT_DASHBOARD_FILTERS)
   const [toasts, setToasts] = useState<ToastItem[]>([])
@@ -145,7 +143,7 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
 
       if (withModifier && !isTypingField && key === 'n') {
         event.preventDefault()
-        setIsAddRowOpen(true)
+        setIsAddMovementOpen(true)
         return
       }
 
@@ -183,10 +181,22 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
   }, [rows])
 
   const accounts = useMemo(() => {
-    return Array.from(new Set(rows.map((row) => row.cuenta.trim()).filter(Boolean))).sort((a, b) =>
+    return Array.from(new Set(transactions.map((movement) => movement.cuenta.trim()).filter(Boolean))).sort((a, b) =>
       a.localeCompare(b, 'es', { sensitivity: 'base' })
     )
-  }, [rows])
+  }, [transactions])
+
+  const movementCurrencies = useMemo(() => {
+    return Array.from(new Set(transactions.map((movement) => movement.moneda.trim().toUpperCase()).filter(Boolean))).sort((a, b) =>
+      a.localeCompare(b, 'es', { sensitivity: 'base' })
+    )
+  }, [transactions])
+
+  const movementSubassets = useMemo(() => {
+    return Array.from(new Set(transactions.map((movement) => movement.subactivo.trim().toUpperCase()).filter(Boolean))).sort((a, b) =>
+      a.localeCompare(b, 'es', { sensitivity: 'base' })
+    )
+  }, [transactions])
 
   const computedRows = useMemo(() => {
     return filteredRows.map((row) => {
@@ -351,14 +361,8 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
           theme={theme}
           onToggleTheme={() => setTheme((previous) => (previous === 'dark' ? 'light' : 'dark'))}
           onOpenSettings={() => setIsSettingsOpen(true)}
-          onRestoreDemo={() => {
-            if (window.confirm('Se van a restaurar las filas demo y las tasas por defecto. ¿Continuar?')) {
-              restoreDemo()
-              pushToast('Se restauraron datos demo', 'success')
-            }
-          }}
           onResetData={() => {
-            if (window.confirm('Esto elimina todos los holdings guardados localmente. ¿Continuar?')) {
+            if (window.confirm('Esto elimina movimientos y posiciones guardadas. ¿Continuar?')) {
               resetData()
               pushToast('Datos reiniciados', 'success')
             }
@@ -380,7 +384,7 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
           filteredRowsCount={filteredRows.length}
           totalRowsCount={rows.length}
           onFiltersChange={setFilters}
-          onOpenAddModal={() => setIsAddRowOpen(true)}
+          onOpenAddMovement={() => setIsAddMovementOpen(true)}
           onSaveCurrentView={handleSaveCurrentView}
           onApplySavedView={handleApplySavedView}
           onDeleteSavedView={handleDeleteSavedView}
@@ -402,29 +406,29 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
 
         <ChartsSection byType={chartsData.byType} bySubasset={chartsData.bySubasset} byAccount={chartsData.byAccount} />
 
-        <HoldingsTable
-          rows={filteredRows}
-          settings={settings}
-          onUpdateRow={(id, patch) => {
-            updateRow(id, patch)
-            pushToast('Fila actualizada', 'success')
-          }}
-          onBulkUpdateRows={(ids, patch) => {
-            bulkUpdateRows(ids, patch)
-            pushToast(`Edición masiva aplicada (${ids.length})`, 'success')
-          }}
-          onDuplicateRow={(id) => {
-            const duplicated = duplicateRow(id)
+        <HoldingsSnapshotTable rows={filteredRows} settings={settings} />
 
-            if (duplicated) {
-              pushToast('Fila duplicada', 'success')
-            }
+        <MovementsSection
+          movements={transactions}
+          accountOptions={accounts}
+          currencyOptions={movementCurrencies}
+          subassetOptions={movementSubassets}
+          isCreateOpen={isAddMovementOpen}
+          onCloseCreate={() => setIsAddMovementOpen(false)}
+          onCreateMovement={(draft) => {
+            addMovement(draft)
+            pushToast('Movimiento guardado', 'success')
           }}
-          onDeleteRow={(id) => {
-            deleteRow(id)
-            pushToast('Fila eliminada')
+          onCreateTransfer={(draft) => {
+            addTransferMovement(draft)
+            pushToast('Transferencia guardada', 'success')
+          }}
+          onDeleteMovement={(id) => {
+            deleteMovement(id)
+            pushToast('Movimiento eliminado')
           }}
         />
+
       </main>
 
       <SettingsModal
@@ -434,18 +438,6 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
         onSave={(nextSettings) => {
           updateSettings(nextSettings)
           pushToast('Ajustes actualizados', 'success')
-        }}
-      />
-
-      <AddRowModal
-        isOpen={isAddRowOpen}
-        accountOptions={accounts}
-        currencyOptions={currencies}
-        subassetOptions={subassets}
-        onClose={() => setIsAddRowOpen(false)}
-        onCreate={(row) => {
-          addRow(row)
-          pushToast('Fila agregada', 'success')
         }}
       />
 

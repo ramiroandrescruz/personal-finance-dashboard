@@ -13,7 +13,6 @@ interface AppHeaderProps {
   canUndo: boolean
   canRedo: boolean
   onResetData: () => void
-  onRestoreDemo: () => void
   theme: 'dark' | 'light'
   onToggleTheme: () => void
   userEmail?: string
@@ -33,7 +32,6 @@ export const AppHeader = ({
   canUndo,
   canRedo,
   onResetData,
-  onRestoreDemo,
   theme,
   onToggleTheme,
   userEmail,
@@ -86,9 +84,6 @@ export const AppHeader = ({
         </button>
         <button type="button" className="btn btn-tertiary" onClick={onToggleTheme}>
           Tema: {theme === 'dark' ? 'Oscuro' : 'Claro'}
-        </button>
-        <button type="button" className="btn btn-tertiary" onClick={onRestoreDemo}>
-          Restaurar demo
         </button>
         <button type="button" className="btn btn-danger" onClick={onResetData}>
           Resetear datos

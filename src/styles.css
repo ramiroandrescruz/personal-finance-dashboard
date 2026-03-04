@@ -519,6 +519,11 @@ body {
   padding: 0.8rem;
 }
 
+.table-section-title {
+  margin: 0;
+  font-size: 1.03rem;
+}
+
 .table-toolbar {
   display: flex;
   align-items: flex-start;
