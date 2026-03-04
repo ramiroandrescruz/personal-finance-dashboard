@@ -79,6 +79,7 @@ npm run preview
 - Carga seed demo al primer inicio
 - Inline edit funciona (Enter guarda, Esc cancela)
 - Agregar fila funciona
+- Columna `Cantidad` editable/opcional (BTC, shares, etc.)
 - Eliminar fila con confirmacion funciona
 - Search por cuenta/subactivo funciona
 - Filtros por tipo/moneda/tipo de subactivo/subactivo funcionan con seleccion multiple
@@ -91,6 +92,8 @@ npm run preview
 - Existe toggle de tema oscuro/claro
 - Objetivos de asignación por Tipo/Subactivo con alertas de desvío
 - Configuración de objetivos en modal separado y alertas resumidas en Home
+- Snapshot manual diario de patrimonio (USD oficial/financiero)
+- Gráfico histórico y variaciones diaria/semanal/mensual
 
 ## Login restringido y sync cloud (solo deploy)
 En deploy (GitHub Pages), la app usa Firebase Auth (Google) y permite solo `VITE_ALLOWED_EMAIL`.
@@ -185,6 +188,7 @@ VITE_BASE_PATH=/NOMBRE_REPO/ npm run build
 - `src/utils/number.ts`: parseo/formato de numeros
 - `src/utils/storage.ts`: persistencia local versionada
 - `src/utils/firebaseStorage.ts`: persistencia remota en Firestore
+- `src/utils/snapshots.ts`: logica de cierre manual y variaciones historicas
 - `src/lib/firebase.ts`: inicializacion Firebase
 - `src/data/demo.ts`: seed demo
 

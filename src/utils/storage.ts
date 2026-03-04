@@ -1,23 +1,36 @@
 import { cloneDemoRows, DEFAULT_SETTINGS } from '../data/demo'
-import type { AllocationTargets, HoldingRow, Settings } from '../types'
+import type { AllocationTargets, HoldingRow, PortfolioSnapshot, Settings } from '../types'
 import { HOLDING_TYPES } from '../types'
 import { DEFAULT_ALLOCATION_TARGETS, sanitizeTargets } from './allocationTargets'
 
 const STORAGE_KEY = 'personal-finance-dashboard'
-const SCHEMA_VERSION = 2
+const SCHEMA_VERSION = 3
+
+type LegacyHoldingRow = Omit<HoldingRow, 'cantidad'> & {
+  cantidad?: number | null
+}
 
 interface PersistedDashboardV1 {
   schemaVersion: 1
-  rows: HoldingRow[]
+  rows: LegacyHoldingRow[]
   settings: Settings
   updatedAt: number
 }
 
 interface PersistedDashboardV2 {
   schemaVersion: 2
+  rows: LegacyHoldingRow[]
+  settings: Settings
+  targets: AllocationTargets
+  updatedAt: number
+}
+
+interface PersistedDashboardV3 {
+  schemaVersion: 3
   rows: HoldingRow[]
   settings: Settings
   targets: AllocationTargets
+  snapshots: PortfolioSnapshot[]
   updatedAt: number
 }
 
@@ -25,25 +38,42 @@ export interface PersistedDashboard {
   rows: HoldingRow[]
   settings: Settings
   targets: AllocationTargets
+  snapshots: PortfolioSnapshot[]
   updatedAt: number | null
 }
 
-const isValidRow = (row: unknown): row is HoldingRow => {
+const isValidRow = (row: unknown): row is LegacyHoldingRow => {
   if (!row || typeof row !== 'object') {
     return false
   }
 
-  const candidate = row as HoldingRow
+  const candidate = row as LegacyHoldingRow
+  const quantityIsValid =
+    candidate.cantidad === undefined ||
+    candidate.cantidad === null ||
+    (typeof candidate.cantidad === 'number' && Number.isFinite(candidate.cantidad))
 
   return (
     typeof candidate.id === 'string' &&
     typeof candidate.cuenta === 'string' &&
     typeof candidate.moneda === 'string' &&
     typeof candidate.monto === 'number' &&
+    Number.isFinite(candidate.monto) &&
     typeof candidate.tipo === 'string' &&
-    typeof candidate.subactivo === 'string'
+    typeof candidate.subactivo === 'string' &&
+    quantityIsValid
   )
 }
+
+const normalizeRow = (row: LegacyHoldingRow): HoldingRow => ({
+  id: row.id,
+  cuenta: row.cuenta,
+  moneda: row.moneda,
+  monto: row.monto,
+  cantidad: typeof row.cantidad === 'number' && Number.isFinite(row.cantidad) ? row.cantidad : null,
+  tipo: row.tipo,
+  subactivo: row.subactivo
+})
 
 const isValidSettings = (settings: unknown): settings is Settings => {
   if (!settings || typeof settings !== 'object') {
@@ -88,15 +118,41 @@ const isValidTargets = (targets: unknown): targets is AllocationTargets => {
   return validTypeEntries && validSubassetEntries
 }
 
+const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+
+const isValidSnapshot = (snapshot: unknown): snapshot is PortfolioSnapshot => {
+  if (!snapshot || typeof snapshot !== 'object') {
+    return false
+  }
+
+  const candidate = snapshot as PortfolioSnapshot
+
+  return (
+    typeof candidate.date === 'string' &&
+    DATE_KEY_PATTERN.test(candidate.date) &&
+    typeof candidate.totalUsdOficial === 'number' &&
+    Number.isFinite(candidate.totalUsdOficial) &&
+    typeof candidate.totalUsdFinanciero === 'number' &&
+    Number.isFinite(candidate.totalUsdFinanciero) &&
+    typeof candidate.arsUsdOficial === 'number' &&
+    Number.isFinite(candidate.arsUsdOficial) &&
+    typeof candidate.arsUsdFinanciero === 'number' &&
+    Number.isFinite(candidate.arsUsdFinanciero) &&
+    typeof candidate.capturedAt === 'number' &&
+    Number.isFinite(candidate.capturedAt)
+  )
+}
+
 const migrateFromV1 = (candidate: PersistedDashboardV1): PersistedDashboard | null => {
   if (!Array.isArray(candidate.rows) || !candidate.rows.every((row) => isValidRow(row)) || !isValidSettings(candidate.settings)) {
     return null
   }
 
   return {
-    rows: candidate.rows.map((row) => ({ ...row })),
+    rows: candidate.rows.map(normalizeRow),
     settings: { ...candidate.settings },
     targets: { ...DEFAULT_ALLOCATION_TARGETS, byType: {}, bySubasset: {} },
+    snapshots: [],
     updatedAt: typeof candidate.updatedAt === 'number' ? candidate.updatedAt : null
   }
 }
@@ -112,9 +168,31 @@ const migrateFromV2 = (candidate: PersistedDashboardV2): PersistedDashboard | nu
   }
 
   return {
-    rows: candidate.rows.map((row) => ({ ...row })),
+    rows: candidate.rows.map(normalizeRow),
     settings: { ...candidate.settings },
     targets: sanitizeTargets(candidate.targets),
+    snapshots: [],
+    updatedAt: typeof candidate.updatedAt === 'number' ? candidate.updatedAt : null
+  }
+}
+
+const migrateFromV3 = (candidate: PersistedDashboardV3): PersistedDashboard | null => {
+  if (
+    !Array.isArray(candidate.rows) ||
+    !candidate.rows.every((row) => isValidRow(row)) ||
+    !isValidSettings(candidate.settings) ||
+    !isValidTargets(candidate.targets) ||
+    !Array.isArray(candidate.snapshots) ||
+    !candidate.snapshots.every((snapshot) => isValidSnapshot(snapshot))
+  ) {
+    return null
+  }
+
+  return {
+    rows: candidate.rows.map(normalizeRow),
+    settings: { ...candidate.settings },
+    targets: sanitizeTargets(candidate.targets),
+    snapshots: [...candidate.snapshots].sort((left, right) => left.date.localeCompare(right.date)),
     updatedAt: typeof candidate.updatedAt === 'number' ? candidate.updatedAt : null
   }
 }
@@ -134,6 +212,10 @@ const migrate = (payload: unknown): PersistedDashboard | null => {
     return migrateFromV2(payload as PersistedDashboardV2)
   }
 
+  if (candidate.schemaVersion === 3) {
+    return migrateFromV3(payload as PersistedDashboardV3)
+  }
+
   return null
 }
 
@@ -141,12 +223,13 @@ export const parsePersistedDashboard = (payload: unknown): PersistedDashboard | 
   return migrate(payload)
 }
 
-export const serializePersistedDashboard = (data: PersistedDashboard): PersistedDashboardV2 => {
+export const serializePersistedDashboard = (data: PersistedDashboard): PersistedDashboardV3 => {
   return {
     schemaVersion: SCHEMA_VERSION,
     rows: data.rows,
     settings: data.settings,
     targets: sanitizeTargets(data.targets),
+    snapshots: [...data.snapshots].sort((left, right) => left.date.localeCompare(right.date)),
     updatedAt: data.updatedAt ?? Date.now()
   }
 }
@@ -155,6 +238,7 @@ const defaultPersistedDashboard = (): PersistedDashboard => ({
   rows: cloneDemoRows(),
   settings: { ...DEFAULT_SETTINGS },
   targets: { ...DEFAULT_ALLOCATION_TARGETS, byType: {}, bySubasset: {} },
+  snapshots: [],
   updatedAt: null
 })
 

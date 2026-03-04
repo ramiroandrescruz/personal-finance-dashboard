@@ -1,12 +1,14 @@
-import type { AllocationTargets, HoldingRow, HoldingsState, Settings } from '../types'
+import type { AllocationTargets, HoldingRow, HoldingsState, PortfolioSnapshot, Settings } from '../types'
+import { upsertSnapshot } from '../utils/snapshots'
 
 export type HoldingsAction =
-  | { type: 'HYDRATE'; payload: { rows: HoldingRow[]; settings: Settings; targets: AllocationTargets } }
+  | { type: 'HYDRATE'; payload: { rows: HoldingRow[]; settings: Settings; targets: AllocationTargets; snapshots: PortfolioSnapshot[] } }
   | { type: 'ADD_ROW'; payload: HoldingRow }
   | { type: 'UPDATE_ROW'; payload: { id: string; patch: Partial<Omit<HoldingRow, 'id'>> } }
   | { type: 'DELETE_ROW'; payload: { id: string } }
   | { type: 'SET_SETTINGS'; payload: Settings }
   | { type: 'SET_TARGETS'; payload: AllocationTargets }
+  | { type: 'UPSERT_SNAPSHOT'; payload: PortfolioSnapshot }
   | { type: 'RESET_DATA'; payload: { rows: HoldingRow[]; settings: Settings; targets: AllocationTargets } }
 
 const withEditTimestamp = (state: Omit<HoldingsState, 'lastEditedAt'>): HoldingsState => ({
@@ -21,6 +23,7 @@ export const holdingsReducer = (state: HoldingsState, action: HoldingsAction): H
         rows: action.payload.rows,
         settings: action.payload.settings,
         targets: action.payload.targets,
+        snapshots: action.payload.snapshots,
         lastEditedAt: null
       }
     }
@@ -29,7 +32,8 @@ export const holdingsReducer = (state: HoldingsState, action: HoldingsAction): H
       return withEditTimestamp({
         rows: [...state.rows, action.payload],
         settings: state.settings,
-        targets: state.targets
+        targets: state.targets,
+        snapshots: state.snapshots
       })
     }
 
@@ -55,7 +59,8 @@ export const holdingsReducer = (state: HoldingsState, action: HoldingsAction): H
       return withEditTimestamp({
         rows: nextRows,
         settings: state.settings,
-        targets: state.targets
+        targets: state.targets,
+        snapshots: state.snapshots
       })
     }
 
@@ -69,7 +74,8 @@ export const holdingsReducer = (state: HoldingsState, action: HoldingsAction): H
       return withEditTimestamp({
         rows: nextRows,
         settings: state.settings,
-        targets: state.targets
+        targets: state.targets,
+        snapshots: state.snapshots
       })
     }
 
@@ -77,7 +83,8 @@ export const holdingsReducer = (state: HoldingsState, action: HoldingsAction): H
       return withEditTimestamp({
         rows: state.rows,
         settings: action.payload,
-        targets: state.targets
+        targets: state.targets,
+        snapshots: state.snapshots
       })
     }
 
@@ -85,7 +92,17 @@ export const holdingsReducer = (state: HoldingsState, action: HoldingsAction): H
       return withEditTimestamp({
         rows: state.rows,
         settings: state.settings,
-        targets: action.payload
+        targets: action.payload,
+        snapshots: state.snapshots
+      })
+    }
+
+    case 'UPSERT_SNAPSHOT': {
+      return withEditTimestamp({
+        rows: state.rows,
+        settings: state.settings,
+        targets: state.targets,
+        snapshots: upsertSnapshot(state.snapshots, action.payload)
       })
     }
 
@@ -93,7 +110,8 @@ export const holdingsReducer = (state: HoldingsState, action: HoldingsAction): H
       return withEditTimestamp({
         rows: action.payload.rows,
         settings: action.payload.settings,
-        targets: action.payload.targets
+        targets: action.payload.targets,
+        snapshots: []
       })
     }
 

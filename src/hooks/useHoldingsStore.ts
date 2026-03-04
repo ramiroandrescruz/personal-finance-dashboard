@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useReducer, useState } from 'react'
 import { cloneDemoRows, DEFAULT_SETTINGS } from '../data/demo'
 import { holdingsReducer } from '../store/holdingsReducer'
-import type { AllocationTargets, HoldingRow, HoldingsState, Settings } from '../types'
+import type { AllocationTargets, HoldingRow, HoldingsState, PortfolioSnapshot, Settings } from '../types'
 import { DEFAULT_ALLOCATION_TARGETS, sanitizeTargets } from '../utils/allocationTargets'
 import { loadCloudDashboardData, saveCloudDashboardData } from '../utils/firebaseStorage'
 import { loadDashboardData, saveDashboardData } from '../utils/storage'
+import { getSnapshotDateKey } from '../utils/snapshots'
 import { useDebouncedEffect } from './useDebouncedEffect'
 
 const createFallbackId = (): string => `${Date.now()}-${Math.random().toString(16).slice(2)}`
@@ -41,6 +42,7 @@ export const useHoldingsStore = ({ userId, cloudSyncEnabled = false }: UseHoldin
       rows: persisted.rows,
       settings: persisted.settings,
       targets: persisted.targets,
+      snapshots: persisted.snapshots,
       lastEditedAt: null
     })
   )
@@ -103,7 +105,8 @@ export const useHoldingsStore = ({ userId, cloudSyncEnabled = false }: UseHoldin
             payload: {
               rows: remote.rows,
               settings: remote.settings,
-              targets: remote.targets
+              targets: remote.targets,
+              snapshots: remote.snapshots
             }
           })
 
@@ -162,6 +165,7 @@ export const useHoldingsStore = ({ userId, cloudSyncEnabled = false }: UseHoldin
         rows: state.rows,
         settings: state.settings,
         targets: state.targets,
+        snapshots: state.snapshots,
         updatedAt: savedAt
       }
 
@@ -187,7 +191,7 @@ export const useHoldingsStore = ({ userId, cloudSyncEnabled = false }: UseHoldin
         })
     },
     350,
-    [state.rows, state.settings, state.targets, cloudSyncEnabled, userId, isCloudReady]
+    [state.rows, state.settings, state.targets, state.snapshots, cloudSyncEnabled, userId, isCloudReady]
   )
 
   const addRow = useCallback((draft: Omit<HoldingRow, 'id'>) => {
@@ -238,10 +242,30 @@ export const useHoldingsStore = ({ userId, cloudSyncEnabled = false }: UseHoldin
     dispatch({ type: 'SET_TARGETS', payload: sanitizeTargets(targets) })
   }, [])
 
+  const addSnapshot = useCallback(
+    (snapshot: Omit<PortfolioSnapshot, 'date' | 'capturedAt'> & { date?: string }) => {
+      const capturedAt = Date.now()
+
+      dispatch({
+        type: 'UPSERT_SNAPSHOT',
+        payload: {
+          date: snapshot.date ?? getSnapshotDateKey(capturedAt),
+          totalUsdOficial: snapshot.totalUsdOficial,
+          totalUsdFinanciero: snapshot.totalUsdFinanciero,
+          arsUsdOficial: snapshot.arsUsdOficial,
+          arsUsdFinanciero: snapshot.arsUsdFinanciero,
+          capturedAt
+        }
+      })
+    },
+    []
+  )
+
   return {
     rows: state.rows,
     settings: state.settings,
     targets: state.targets,
+    snapshots: state.snapshots,
     lastEditedAt: state.lastEditedAt,
     lastSavedAt,
     syncMode,
@@ -254,6 +278,7 @@ export const useHoldingsStore = ({ userId, cloudSyncEnabled = false }: UseHoldin
     restoreDemo,
     resetData,
     updateSettings,
-    updateTargets
+    updateTargets,
+    addSnapshot
   }
 }

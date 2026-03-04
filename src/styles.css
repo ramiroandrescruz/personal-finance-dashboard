@@ -19,6 +19,7 @@
   --warning-bg: rgba(120, 53, 15, 0.4);
   --warning-border: rgba(245, 158, 11, 0.3);
   --warning-text: #fed7aa;
+  --danger: #fecaca;
   --tooltip-bg: #0f1d30;
   --tooltip-border: rgba(148, 163, 184, 0.28);
   --tooltip-text: #e2e8f0;
@@ -47,6 +48,7 @@
   --warning-bg: rgba(251, 191, 36, 0.18);
   --warning-border: rgba(180, 83, 9, 0.36);
   --warning-text: #92400e;
+  --danger: #b91c1c;
   --tooltip-bg: #ffffff;
   --tooltip-border: rgba(100, 116, 139, 0.32);
   --tooltip-text: #0f172a;
@@ -80,12 +82,7 @@ body {
 }
 
 .app-bg {
-  position: fixed;
-  inset: 0;
-  background-image: linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
-  background-size: 36px 36px;
-  pointer-events: none;
+  display: none;
 }
 
 .dashboard {
@@ -373,6 +370,66 @@ body {
   border-color: rgba(249, 115, 22, 0.45);
 }
 
+.snapshot-section {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  padding: 0.9rem;
+}
+
+.snapshot-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.snapshot-header h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.snapshot-variations-grid {
+  margin-top: 0.75rem;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.6rem;
+}
+
+.snapshot-variation-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-soft);
+  padding: 0.65rem;
+}
+
+.snapshot-variation-card h3 {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.snapshot-variation-value {
+  margin: 0.35rem 0 0;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.snapshot-variation-value.is-positive {
+  color: #22c55e;
+}
+
+.snapshot-variation-value.is-negative {
+  color: #f97316;
+}
+
+.snapshot-variation-empty {
+  margin: 0.45rem 0 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
 .charts-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -461,7 +518,7 @@ select:hover {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  min-width: 980px;
+  min-width: 1080px;
 }
 
 .table-shell th,
@@ -880,6 +937,10 @@ select:focus-visible {
 
   .summary-grid {
     grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .snapshot-variations-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .charts-grid {

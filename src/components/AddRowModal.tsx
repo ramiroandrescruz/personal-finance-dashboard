@@ -14,8 +14,9 @@ interface AddRowModalProps {
 
 const NEW_OPTION_VALUE = '__NEW__'
 
-const initialDraft: { monto: string; tipo: HoldingType } = {
+const initialDraft: { monto: string; cantidad: string; tipo: HoldingType } = {
   monto: '0',
+  cantidad: '',
   tipo: 'Cash'
 }
 
@@ -72,6 +73,8 @@ export const AddRowModal = ({
     const moneda = resolveSelectedValue(selectedCurrency, newCurrency).toUpperCase()
     const subactivo = resolveSelectedValue(selectedSubasset, newSubasset).toUpperCase()
     const parsedAmount = parseAmountInput(draft.monto)
+    const trimmedQuantity = draft.cantidad.trim()
+    const parsedQuantity = trimmedQuantity ? parseAmountInput(trimmedQuantity) : null
 
     if (!cuenta) {
       setError('La cuenta es obligatoria.')
@@ -113,10 +116,21 @@ export const AddRowModal = ({
       return
     }
 
+    if (parsedQuantity !== null && parsedQuantity < 0) {
+      setError('La cantidad no puede ser negativa.')
+      return
+    }
+
+    if (trimmedQuantity && parsedQuantity === null) {
+      setError('La cantidad debe ser numérica.')
+      return
+    }
+
     onCreate({
       cuenta,
       moneda,
       monto: parsedAmount,
+      cantidad: parsedQuantity,
       tipo: draft.tipo,
       subactivo
     })
@@ -175,6 +189,15 @@ export const AddRowModal = ({
             onChange={(event) => setDraft((previous) => ({ ...previous, monto: event.target.value }))}
             inputMode="decimal"
             required
+          />
+
+          <label htmlFor="add-cantidad">Cantidad (opcional)</label>
+          <input
+            id="add-cantidad"
+            value={draft.cantidad}
+            onChange={(event) => setDraft((previous) => ({ ...previous, cantidad: event.target.value }))}
+            inputMode="decimal"
+            placeholder="Ej: 0.1542 BTC o 25 shares"
           />
 
           <label htmlFor="add-tipo">Tipo</label>

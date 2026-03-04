@@ -49,6 +49,13 @@ export const formatPlainNumber = (value: number): string => {
   }).format(value)
 }
 
+export const formatQuantity = (value: number): string => {
+  return new Intl.NumberFormat('es-AR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 8
+  }).format(value)
+}
+
 export const formatTime = (timestamp: number | null): string => {
   if (!timestamp) {
     return '--:--'

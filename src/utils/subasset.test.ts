@@ -7,6 +7,7 @@ const baseRow: HoldingRow = {
   cuenta: 'Test',
   moneda: 'USD',
   monto: 100,
+  cantidad: null,
   tipo: 'Cash',
   subactivo: 'USD'
 }

@@ -9,6 +9,7 @@ const initialState: HoldingsState = {
       cuenta: 'Cuenta Inicial',
       moneda: 'USD',
       monto: 10,
+      cantidad: null,
       tipo: 'Cash',
       subactivo: 'USD'
     }
@@ -22,6 +23,7 @@ const initialState: HoldingsState = {
     bySubasset: {},
     alertThresholdPct: 5
   },
+  snapshots: [],
   lastEditedAt: null
 }
 
@@ -36,6 +38,7 @@ describe('holdingsReducer', () => {
             cuenta: 'Cuenta remota',
             moneda: 'USD',
             monto: 200,
+            cantidad: 2,
             tipo: 'Investments',
             subactivo: 'SPY'
           }
@@ -48,7 +51,8 @@ describe('holdingsReducer', () => {
           byType: { Investments: 60 },
           bySubasset: { SPY: 30 },
           alertThresholdPct: 3
-        }
+        },
+        snapshots: []
       }
     })
 
@@ -67,6 +71,7 @@ describe('holdingsReducer', () => {
         cuenta: 'Nueva',
         moneda: 'ARS',
         monto: 1200,
+        cantidad: null,
         tipo: 'Cash',
         subactivo: 'ARS'
       }
@@ -115,5 +120,35 @@ describe('holdingsReducer', () => {
     expect(state.targets.byType.Crypto).toBe(30)
     expect(state.targets.bySubasset.BTC).toBe(15)
     expect(state.targets.alertThresholdPct).toBe(4)
+  })
+
+  it('agrega o actualiza snapshot diario', () => {
+    const firstState = holdingsReducer(initialState, {
+      type: 'UPSERT_SNAPSHOT',
+      payload: {
+        date: '2026-03-04',
+        totalUsdOficial: 100,
+        totalUsdFinanciero: 90,
+        arsUsdOficial: 1300,
+        arsUsdFinanciero: 1500,
+        capturedAt: 1
+      }
+    })
+
+    const secondState = holdingsReducer(firstState, {
+      type: 'UPSERT_SNAPSHOT',
+      payload: {
+        date: '2026-03-04',
+        totalUsdOficial: 120,
+        totalUsdFinanciero: 110,
+        arsUsdOficial: 1400,
+        arsUsdFinanciero: 1600,
+        capturedAt: 2
+      }
+    })
+
+    expect(secondState.snapshots).toHaveLength(1)
+    expect(secondState.snapshots[0]?.totalUsdFinanciero).toBe(110)
+    expect(secondState.snapshots[0]?.capturedAt).toBe(2)
   })
 })

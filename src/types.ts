@@ -9,6 +9,7 @@ export interface HoldingRow {
   cuenta: string
   moneda: string
   monto: number
+  cantidad: number | null
   tipo: HoldingType
   subactivo: string
 }
@@ -24,10 +25,20 @@ export interface AllocationTargets {
   alertThresholdPct: number
 }
 
+export interface PortfolioSnapshot {
+  date: string
+  totalUsdOficial: number
+  totalUsdFinanciero: number
+  arsUsdOficial: number
+  arsUsdFinanciero: number
+  capturedAt: number
+}
+
 export interface HoldingsState {
   rows: HoldingRow[]
   settings: Settings
   targets: AllocationTargets
+  snapshots: PortfolioSnapshot[]
   lastEditedAt: number | null
 }
 

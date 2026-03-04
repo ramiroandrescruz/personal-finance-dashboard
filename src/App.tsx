@@ -8,6 +8,7 @@ import { ChartsSection } from './components/ChartsSection'
 import { GlobalFiltersBar } from './components/GlobalFiltersBar'
 import { HoldingsTable } from './components/HoldingsTable'
 import { SettingsModal } from './components/SettingsModal'
+import { SnapshotHistorySection } from './components/SnapshotHistorySection'
 import { SummaryCards } from './components/SummaryCards'
 import { useHoldingsStore } from './hooks/useHoldingsStore'
 import type { HoldingType } from './types'
@@ -15,6 +16,7 @@ import { buildDeviationRows } from './utils/allocation'
 import { aggregateTotals, convertRowToUsd } from './utils/conversion'
 import { applyDashboardFilters, DEFAULT_DASHBOARD_FILTERS, type DashboardFilters } from './utils/filters'
 import { clampTargetPercent } from './utils/allocationTargets'
+import { getSnapshotDateKey } from './utils/snapshots'
 
 const EMPTY_TOTALS_BY_TYPE: Record<HoldingType, number> = {
   Cash: 0,
@@ -48,6 +50,7 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
     rows,
     settings,
     targets,
+    snapshots,
     lastEditedAt,
     lastSavedAt,
     syncMode,
@@ -60,7 +63,8 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
     restoreDemo,
     resetData,
     updateSettings,
-    updateTargets
+    updateTargets,
+    addSnapshot
   } = useHoldingsStore({ userId, cloudSyncEnabled })
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
@@ -146,6 +150,21 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
     }
   }, [filteredRows, settings])
 
+  const portfolioTotals = useMemo(() => {
+    return rows.reduce(
+      (accumulator, row) => {
+        const conversion = convertRowToUsd(row, settings)
+        accumulator.usdOficial += conversion.usdOficial
+        accumulator.usdFinanciero += conversion.usdFinanciero
+        return accumulator
+      },
+      {
+        usdOficial: 0,
+        usdFinanciero: 0
+      }
+    )
+  }, [rows, settings])
+
   const thresholdPct = clampTargetPercent(targets.alertThresholdPct)
 
   const allocationAlerts = useMemo(() => {
@@ -161,6 +180,26 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
 
     return [...typeAlerts, ...subassetAlerts].sort((left, right) => Math.abs(right.deviationPct) - Math.abs(left.deviationPct))
   }, [chartsData.bySubasset, chartsData.byType, targets.bySubasset, targets.byType, thresholdPct])
+
+  const handleCaptureSnapshot = () => {
+    const snapshotDate = getSnapshotDateKey()
+    const hasTodaySnapshot = snapshots.some((snapshot) => snapshot.date === snapshotDate)
+    const confirmationMessage = hasTodaySnapshot
+      ? `Ya existe un snapshot para hoy (${snapshotDate}). ¿Querés actualizarlo?`
+      : `¿Guardar snapshot manual de hoy (${snapshotDate})?`
+
+    if (!window.confirm(confirmationMessage)) {
+      return
+    }
+
+    addSnapshot({
+      date: snapshotDate,
+      totalUsdOficial: portfolioTotals.usdOficial,
+      totalUsdFinanciero: portfolioTotals.usdFinanciero,
+      arsUsdOficial: settings.arsUsdOficial,
+      arsUsdFinanciero: settings.arsUsdFinanciero
+    })
+  }
 
   return (
     <div className="app-shell">
@@ -212,6 +251,8 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
           totalUsdOficial={totals.usdOficial}
           totalsByType={totals.byType}
         />
+
+        <SnapshotHistorySection snapshots={snapshots} onCaptureSnapshot={handleCaptureSnapshot} />
 
         <AllocationAlertsHome
           thresholdPct={thresholdPct}

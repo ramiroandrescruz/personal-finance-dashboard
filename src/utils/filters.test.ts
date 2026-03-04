@@ -3,9 +3,9 @@ import type { HoldingRow } from '../types'
 import { applyDashboardFilters, DEFAULT_DASHBOARD_FILTERS } from './filters'
 
 const rows: HoldingRow[] = [
-  { id: '1', cuenta: 'Binance', moneda: 'USD', monto: 1000, tipo: 'Crypto', subactivo: 'BTC' },
-  { id: '2', cuenta: 'Broker', moneda: 'ARS', monto: 2000, tipo: 'Investments', subactivo: 'SPY' },
-  { id: '3', cuenta: 'Wallet', moneda: 'USD', monto: 800, tipo: 'Crypto', subactivo: 'USDT' }
+  { id: '1', cuenta: 'Binance', moneda: 'USD', monto: 1000, cantidad: null, tipo: 'Crypto', subactivo: 'BTC' },
+  { id: '2', cuenta: 'Broker', moneda: 'ARS', monto: 2000, cantidad: null, tipo: 'Investments', subactivo: 'SPY' },
+  { id: '3', cuenta: 'Wallet', moneda: 'USD', monto: 800, cantidad: null, tipo: 'Crypto', subactivo: 'USDT' }
 ]
 
 describe('applyDashboardFilters', () => {

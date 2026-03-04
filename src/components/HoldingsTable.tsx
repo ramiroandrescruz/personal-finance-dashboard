@@ -2,9 +2,9 @@ import { type KeyboardEvent, useMemo, useState } from 'react'
 import type { HoldingRow, HoldingType, Settings } from '../types'
 import { HOLDING_TYPES } from '../types'
 import { convertRowToUsd } from '../utils/conversion'
-import { formatPlainNumber, formatUsd, parseAmountInput } from '../utils/number'
+import { formatPlainNumber, formatQuantity, formatUsd, parseAmountInput } from '../utils/number'
 
-type EditableField = 'cuenta' | 'moneda' | 'monto' | 'tipo' | 'subactivo'
+type EditableField = 'cuenta' | 'moneda' | 'monto' | 'cantidad' | 'tipo' | 'subactivo'
 type SortColumn = EditableField | 'usdOficial' | 'usdFinanciero'
 
 interface SortState {
@@ -66,6 +66,9 @@ export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow }: Hold
         case 'monto':
           comparison = left.monto - right.monto
           break
+        case 'cantidad':
+          comparison = (left.cantidad ?? -1) - (right.cantidad ?? -1)
+          break
         case 'tipo':
           comparison = stringCompare(left.tipo, right.tipo)
           break
@@ -113,8 +116,9 @@ export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow }: Hold
       field
     })
 
-    if (field === 'monto') {
-      setDraftValue(row.monto.toString())
+    if (field === 'monto' || field === 'cantidad') {
+      const sourceValue = field === 'monto' ? row.monto : row.cantidad
+      setDraftValue(sourceValue === null ? '' : sourceValue.toString())
       return
     }
 
@@ -168,14 +172,40 @@ export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow }: Hold
       return
     }
 
-    const parsedAmount = parseAmountInput(trimmed)
-
-    if (parsedAmount === null) {
-      setError('Monto inválido. Ejemplos válidos: 575344,63 o 575344.63')
+    if (editing.field === 'cantidad' && !trimmed) {
+      onUpdateRow(editing.rowId, { cantidad: null })
+      cancelEdit()
       return
     }
 
-    onUpdateRow(editing.rowId, { monto: parsedAmount })
+    const parsedAmount = parseAmountInput(trimmed)
+
+    if (parsedAmount === null) {
+      setError(
+        editing.field === 'cantidad'
+          ? 'Cantidad inválida. Ejemplos válidos: 0,025 o 0.025'
+          : 'Monto inválido. Ejemplos válidos: 575344,63 o 575344.63'
+      )
+      return
+    }
+
+    if (parsedAmount < 0) {
+      setError(editing.field === 'cantidad' ? 'La cantidad no puede ser negativa.' : 'El monto no puede ser negativo.')
+      return
+    }
+
+    if (editing.field === 'monto') {
+      onUpdateRow(editing.rowId, { monto: parsedAmount })
+      cancelEdit()
+      return
+    }
+
+    if (editing.field === 'cantidad') {
+      onUpdateRow(editing.rowId, { cantidad: parsedAmount })
+      cancelEdit()
+      return
+    }
+
     cancelEdit()
   }
 
@@ -222,13 +252,21 @@ export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow }: Hold
           onChange={(event) => setDraftValue(event.target.value)}
           onBlur={commitEdit}
           onKeyDown={handleCellKeyDown}
-          inputMode={field === 'monto' ? 'decimal' : 'text'}
+          inputMode={field === 'monto' || field === 'cantidad' ? 'decimal' : 'text'}
           aria-label={`Editar ${field}`}
         />
       )
     }
 
-    const displayValue = field === 'monto' ? formatPlainNumber(row.monto) : String(row[field])
+    let displayValue: string
+
+    if (field === 'monto') {
+      displayValue = formatPlainNumber(row.monto)
+    } else if (field === 'cantidad') {
+      displayValue = row.cantidad === null ? '—' : formatQuantity(row.cantidad)
+    } else {
+      displayValue = String(row[field])
+    }
 
     return (
       <button type="button" className="cell-button" onClick={() => beginEdit(row, field)}>
@@ -262,6 +300,11 @@ export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow }: Hold
               <th>
                 <button type="button" className="sort-button" onClick={() => handleSortChange('monto')}>
                   Monto {sortArrow(sortState, 'monto')}
+                </button>
+              </th>
+              <th>
+                <button type="button" className="sort-button" onClick={() => handleSortChange('cantidad')}>
+                  Cantidad {sortArrow(sortState, 'cantidad')}
                 </button>
               </th>
               <th>
@@ -304,6 +347,7 @@ export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow }: Hold
                     ) : null}
                   </td>
                   <td>{renderEditableCell(row, 'monto')}</td>
+                  <td>{renderEditableCell(row, 'cantidad')}</td>
                   <td>{renderEditableCell(row, 'tipo')}</td>
                   <td>{formatUsd(conversion?.usdOficial ?? 0)}</td>
                   <td>{formatUsd(conversion?.usdFinanciero ?? 0)}</td>
@@ -327,7 +371,7 @@ export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow }: Hold
 
             {sortedRows.length === 0 ? (
               <tr>
-                <td colSpan={8}>
+                <td colSpan={9}>
                   <p className="empty-state">No hay filas para los filtros actuales.</p>
                 </td>
               </tr>
