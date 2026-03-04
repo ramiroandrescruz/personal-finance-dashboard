@@ -27,8 +27,11 @@ export const isInboundMovement = (kind: MovementKind): boolean => {
 export const signedMovementMultiplier = (kind: MovementKind): 1 | -1 => (isInboundMovement(kind) ? 1 : -1)
 
 export const normalizeMovement = (movement: HoldingMovement): HoldingMovement => {
+  const { linkedMovementId, ...base } = movement
+  const normalizedLinkedId = movement.linkedMovementId?.trim()
+
   return {
-    ...movement,
+    ...base,
     date: ensureDateKey(movement.date),
     kind: movement.kind,
     cuenta: normalizeAccount(movement.cuenta),
@@ -40,7 +43,7 @@ export const normalizeMovement = (movement: HoldingMovement): HoldingMovement =>
     tags: normalizeTags(movement.tags ?? []),
     note: movement.note.trim(),
     createdAt: Number.isFinite(movement.createdAt) ? movement.createdAt : Date.now(),
-    linkedMovementId: movement.linkedMovementId?.trim() ? movement.linkedMovementId : undefined
+    ...(normalizedLinkedId ? { linkedMovementId: normalizedLinkedId } : {})
   }
 }
 

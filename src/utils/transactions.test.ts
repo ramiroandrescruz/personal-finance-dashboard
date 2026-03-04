@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { HoldingMovement, HoldingRow } from '../types'
-import { buildMovementsFromRows, rebuildRowsFromMovements } from './transactions'
+import { buildMovementsFromRows, normalizeMovement, rebuildRowsFromMovements } from './transactions'
 
 describe('transactions utils', () => {
   it('reconstruye posiciones agregando entradas y salidas', () => {
@@ -103,5 +103,25 @@ describe('transactions utils', () => {
     expect(created[0]?.kind).toBe('OPENING')
     expect(created[0]?.monto).toBe(1200)
     expect(created[0]?.cantidad).toBe(0.02)
+  })
+
+  it('no conserva linkedMovementId undefined al normalizar', () => {
+    const normalized = normalizeMovement({
+      id: 'n1',
+      date: '2026-03-01',
+      kind: 'IN',
+      cuenta: 'Broker',
+      moneda: 'USD',
+      monto: 10,
+      cantidad: null,
+      tipo: 'Cash',
+      subactivo: 'USD',
+      tags: [],
+      note: '',
+      createdAt: 1,
+      linkedMovementId: undefined
+    })
+
+    expect(Object.prototype.hasOwnProperty.call(normalized, 'linkedMovementId')).toBe(false)
   })
 })
