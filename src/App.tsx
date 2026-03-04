@@ -9,6 +9,7 @@ import { SummaryCards } from './components/SummaryCards'
 import { useHoldingsStore } from './hooks/useHoldingsStore'
 import type { HoldingType } from './types'
 import { aggregateTotals, convertRowToUsd } from './utils/conversion'
+import { applyDashboardFilters, DEFAULT_DASHBOARD_FILTERS, type DashboardFilters } from './utils/filters'
 
 const EMPTY_TOTALS_BY_TYPE: Record<HoldingType, number> = {
   Cash: 0,
@@ -42,9 +43,30 @@ function DashboardApp({ email, onLogout }: DashboardAppProps) {
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isAddRowOpen, setIsAddRowOpen] = useState(false)
+  const [filters, setFilters] = useState<DashboardFilters>(DEFAULT_DASHBOARD_FILTERS)
+
+  const filteredRows = useMemo(() => applyDashboardFilters(rows, filters), [rows, filters])
+
+  const currencies = useMemo(() => {
+    return Array.from(new Set(rows.map((row) => row.moneda.trim().toUpperCase()).filter(Boolean))).sort((a, b) =>
+      a.localeCompare(b, 'es', { sensitivity: 'base' })
+    )
+  }, [rows])
+
+  const subassets = useMemo(() => {
+    return Array.from(new Set(rows.map((row) => row.subactivo.trim().toUpperCase()).filter(Boolean))).sort((a, b) =>
+      a.localeCompare(b, 'es', { sensitivity: 'base' })
+    )
+  }, [rows])
+
+  const accounts = useMemo(() => {
+    return Array.from(new Set(rows.map((row) => row.cuenta.trim()).filter(Boolean))).sort((a, b) =>
+      a.localeCompare(b, 'es', { sensitivity: 'base' })
+    )
+  }, [rows])
 
   const computedRows = useMemo(() => {
-    return rows.map((row) => {
+    return filteredRows.map((row) => {
       const conversion = convertRowToUsd(row, settings)
 
       return {
@@ -52,7 +74,7 @@ function DashboardApp({ email, onLogout }: DashboardAppProps) {
         ...conversion
       }
     })
-  }, [rows, settings])
+  }, [filteredRows, settings])
 
   const totals = useMemo(() => {
     return computedRows.reduce(
@@ -78,11 +100,11 @@ function DashboardApp({ email, onLogout }: DashboardAppProps) {
 
   const chartsData = useMemo(() => {
     return {
-      byType: aggregateTotals(rows, settings, (row) => row.tipo),
-      bySubasset: aggregateTotals(rows, settings, (row) => row.subactivo),
-      byAccount: aggregateTotals(rows, settings, (row) => row.cuenta)
+      byType: aggregateTotals(filteredRows, settings, (row) => row.tipo),
+      bySubasset: aggregateTotals(filteredRows, settings, (row) => row.subactivo),
+      byAccount: aggregateTotals(filteredRows, settings, (row) => row.cuenta)
     }
-  }, [rows, settings])
+  }, [filteredRows, settings])
 
   return (
     <div className="app-shell">
@@ -119,16 +141,16 @@ function DashboardApp({ email, onLogout }: DashboardAppProps) {
           totalsByType={totals.byType}
         />
 
-        <ChartsSection
-          byType={chartsData.byType}
-          bySubasset={chartsData.bySubasset}
-          byAccount={chartsData.byAccount}
-          totalUsdFinanciero={totals.usdFinanciero}
-        />
+        <ChartsSection byType={chartsData.byType} bySubasset={chartsData.bySubasset} byAccount={chartsData.byAccount} />
 
         <HoldingsTable
-          rows={rows}
+          rows={filteredRows}
+          totalRows={rows.length}
           settings={settings}
+          filters={filters}
+          currencies={currencies}
+          subassets={subassets}
+          onFiltersChange={setFilters}
           onUpdateRow={updateRow}
           onDeleteRow={deleteRow}
           onOpenAddModal={() => setIsAddRowOpen(true)}
@@ -142,7 +164,14 @@ function DashboardApp({ email, onLogout }: DashboardAppProps) {
         onSave={updateSettings}
       />
 
-      <AddRowModal isOpen={isAddRowOpen} onClose={() => setIsAddRowOpen(false)} onCreate={addRow} />
+      <AddRowModal
+        isOpen={isAddRowOpen}
+        accountOptions={accounts}
+        currencyOptions={currencies}
+        subassetOptions={subassets}
+        onClose={() => setIsAddRowOpen(false)}
+        onCreate={addRow}
+      />
     </div>
   )
 }

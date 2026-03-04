@@ -215,31 +215,6 @@ body {
   width: 100%;
 }
 
-.subasset-breakdown {
-  margin-top: 0.65rem;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-.subasset-breakdown-row,
-.subasset-breakdown-total {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 0.6rem;
-  padding: 0.5rem 0.65rem;
-  font-size: 0.82rem;
-}
-
-.subasset-breakdown-row {
-  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
-}
-
-.subasset-breakdown-total {
-  background: rgba(15, 23, 42, 0.7);
-  font-weight: 700;
-}
-
 .table-section {
   border: 1px solid var(--line);
   border-radius: 14px;

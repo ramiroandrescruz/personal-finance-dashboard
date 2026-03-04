@@ -2,8 +2,9 @@ import { type KeyboardEvent, useMemo, useState } from 'react'
 import type { HoldingRow, HoldingType, Settings } from '../types'
 import { HOLDING_TYPES } from '../types'
 import { convertRowToUsd } from '../utils/conversion'
+import type { DashboardFilters } from '../utils/filters'
 import { formatPlainNumber, formatUsd, parseAmountInput } from '../utils/number'
-import { getSubassetCategory, SUBASSET_CATEGORIES, type SubassetCategory } from '../utils/subasset'
+import { SUBASSET_CATEGORIES, type SubassetCategory } from '../utils/subasset'
 
 type EditableField = 'cuenta' | 'moneda' | 'monto' | 'tipo' | 'subactivo'
 type SortColumn = EditableField | 'usdOficial' | 'usdFinanciero'
@@ -15,7 +16,12 @@ interface SortState {
 
 interface HoldingsTableProps {
   rows: HoldingRow[]
+  totalRows: number
   settings: Settings
+  filters: DashboardFilters
+  currencies: string[]
+  subassets: string[]
+  onFiltersChange: (filters: DashboardFilters) => void
   onUpdateRow: (id: string, patch: Partial<Omit<HoldingRow, 'id'>>) => void
   onDeleteRow: (id: string) => void
   onOpenAddModal: () => void
@@ -36,12 +42,18 @@ const sortArrow = (sort: SortState, column: SortColumn): string => {
 
 const stringCompare = (a: string, b: string): number => a.localeCompare(b, 'es', { sensitivity: 'base' })
 
-export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow, onOpenAddModal }: HoldingsTableProps) => {
-  const [searchTerm, setSearchTerm] = useState('')
-  const [typeFilter, setTypeFilter] = useState<'ALL' | HoldingType>('ALL')
-  const [currencyFilter, setCurrencyFilter] = useState<'ALL' | string>('ALL')
-  const [subassetCategoryFilter, setSubassetCategoryFilter] = useState<'ALL' | SubassetCategory>('ALL')
-  const [subassetFilter, setSubassetFilter] = useState<'ALL' | string>('ALL')
+export const HoldingsTable = ({
+  rows,
+  totalRows,
+  settings,
+  filters,
+  currencies,
+  subassets,
+  onFiltersChange,
+  onUpdateRow,
+  onDeleteRow,
+  onOpenAddModal
+}: HoldingsTableProps) => {
   const [sortState, setSortState] = useState<SortState>({ column: 'usdFinanciero', direction: 'desc' })
   const [editing, setEditing] = useState<EditingState | null>(null)
   const [draftValue, setDraftValue] = useState('')
@@ -57,39 +69,8 @@ export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow, onOpen
     return map
   }, [rows, settings])
 
-  const currencies = useMemo(() => {
-    return Array.from(new Set(rows.map((row) => row.moneda.trim().toUpperCase()).filter(Boolean))).sort((a, b) =>
-      stringCompare(a, b)
-    )
-  }, [rows])
-
-  const subassets = useMemo(() => {
-    return Array.from(new Set(rows.map((row) => row.subactivo.trim().toUpperCase()).filter(Boolean))).sort((a, b) =>
-      stringCompare(a, b)
-    )
-  }, [rows])
-
-  const filteredRows = useMemo(() => {
-    const normalizedSearch = searchTerm.trim().toLowerCase()
-
-    return rows.filter((row) => {
-      const currency = row.moneda.trim().toUpperCase()
-      const matchesSearch =
-        !normalizedSearch ||
-        row.cuenta.toLowerCase().includes(normalizedSearch) ||
-        row.subactivo.toLowerCase().includes(normalizedSearch)
-      const matchesType = typeFilter === 'ALL' || row.tipo === typeFilter
-      const matchesCurrency = currencyFilter === 'ALL' || currency === currencyFilter
-      const matchesSubassetCategory =
-        subassetCategoryFilter === 'ALL' || getSubassetCategory(row) === subassetCategoryFilter
-      const matchesSubasset = subassetFilter === 'ALL' || row.subactivo.trim().toUpperCase() === subassetFilter
-
-      return matchesSearch && matchesType && matchesCurrency && matchesSubassetCategory && matchesSubasset
-    })
-  }, [rows, searchTerm, typeFilter, currencyFilter, subassetCategoryFilter, subassetFilter])
-
   const sortedRows = useMemo(() => {
-    const sorted = [...filteredRows]
+    const sorted = [...rows]
 
     sorted.sort((left, right) => {
       let comparison = 0
@@ -126,7 +107,7 @@ export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow, onOpen
     })
 
     return sorted
-  }, [filteredRows, rowConversions, sortState])
+  }, [rows, rowConversions, sortState])
 
   const handleSortChange = (column: SortColumn) => {
     setSortState((previous) => {
@@ -286,13 +267,16 @@ export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow, onOpen
             id="search-holdings"
             className="search-input"
             placeholder="Buscar por Cuenta o Subactivo"
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
+            value={filters.searchTerm}
+            onChange={(event) => onFiltersChange({ ...filters, searchTerm: event.target.value })}
           />
 
           <label>
             <span className="filter-label">Tipo</span>
-            <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value as 'ALL' | HoldingType)}>
+            <select
+              value={filters.typeFilter}
+              onChange={(event) => onFiltersChange({ ...filters, typeFilter: event.target.value as 'ALL' | HoldingType })}
+            >
               <option value="ALL">Todos</option>
               {HOLDING_TYPES.map((type) => (
                 <option key={type} value={type}>
@@ -304,7 +288,10 @@ export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow, onOpen
 
           <label>
             <span className="filter-label">Moneda</span>
-            <select value={currencyFilter} onChange={(event) => setCurrencyFilter(event.target.value)}>
+            <select
+              value={filters.currencyFilter}
+              onChange={(event) => onFiltersChange({ ...filters, currencyFilter: event.target.value })}
+            >
               <option value="ALL">Todas</option>
               {currencies.map((currency) => (
                 <option key={currency} value={currency}>
@@ -317,8 +304,10 @@ export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow, onOpen
           <label>
             <span className="filter-label">Tipo subactivo</span>
             <select
-              value={subassetCategoryFilter}
-              onChange={(event) => setSubassetCategoryFilter(event.target.value as 'ALL' | SubassetCategory)}
+              value={filters.subassetCategoryFilter}
+              onChange={(event) =>
+                onFiltersChange({ ...filters, subassetCategoryFilter: event.target.value as 'ALL' | SubassetCategory })
+              }
             >
               <option value="ALL">Todos</option>
               {SUBASSET_CATEGORIES.map((category) => (
@@ -331,7 +320,10 @@ export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow, onOpen
 
           <label>
             <span className="filter-label">Subactivo</span>
-            <select value={subassetFilter} onChange={(event) => setSubassetFilter(event.target.value)}>
+            <select
+              value={filters.subassetFilter}
+              onChange={(event) => onFiltersChange({ ...filters, subassetFilter: event.target.value })}
+            >
               <option value="ALL">Todos</option>
               {subassets.map((subasset) => (
                 <option key={subasset} value={subasset}>
@@ -343,7 +335,24 @@ export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow, onOpen
         </div>
 
         <div className="table-toolbar-actions">
-          <p className="muted-text">Filas: {sortedRows.length}</p>
+          <p className="muted-text">
+            Filas: {sortedRows.length}/{totalRows}
+          </p>
+          <button
+            type="button"
+            className="btn btn-tertiary"
+            onClick={() =>
+              onFiltersChange({
+                searchTerm: '',
+                typeFilter: 'ALL',
+                currencyFilter: 'ALL',
+                subassetCategoryFilter: 'ALL',
+                subassetFilter: 'ALL'
+              })
+            }
+          >
+            Limpiar filtros
+          </button>
           <button type="button" className="btn btn-primary" onClick={onOpenAddModal}>
             + Agregar fila
           </button>

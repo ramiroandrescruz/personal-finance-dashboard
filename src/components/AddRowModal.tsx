@@ -5,20 +5,41 @@ import { parseAmountInput } from '../utils/number'
 
 interface AddRowModalProps {
   isOpen: boolean
+  accountOptions: string[]
+  currencyOptions: string[]
+  subassetOptions: string[]
   onClose: () => void
   onCreate: (row: Omit<HoldingRow, 'id'>) => void
 }
 
-const initialDraft: Omit<HoldingRow, 'id' | 'monto' | 'tipo'> & { monto: string; tipo: HoldingType } = {
-  cuenta: '',
-  moneda: 'ARS',
+const NEW_OPTION_VALUE = '__NEW__'
+
+const initialDraft: { monto: string; tipo: HoldingType } = {
   monto: '0',
-  tipo: 'Cash',
-  subactivo: 'ARS'
+  tipo: 'Cash'
 }
 
-export const AddRowModal = ({ isOpen, onClose, onCreate }: AddRowModalProps) => {
+const getInitialSelectValue = (options: string[]): string => {
+  return options.length > 0 ? options[0] : NEW_OPTION_VALUE
+}
+
+const sanitizeOption = (value: string): string => value.trim()
+
+export const AddRowModal = ({
+  isOpen,
+  accountOptions,
+  currencyOptions,
+  subassetOptions,
+  onClose,
+  onCreate
+}: AddRowModalProps) => {
   const [draft, setDraft] = useState(initialDraft)
+  const [selectedAccount, setSelectedAccount] = useState<string>(NEW_OPTION_VALUE)
+  const [newAccount, setNewAccount] = useState('')
+  const [selectedCurrency, setSelectedCurrency] = useState<string>(NEW_OPTION_VALUE)
+  const [newCurrency, setNewCurrency] = useState('')
+  const [selectedSubasset, setSelectedSubasset] = useState<string>(NEW_OPTION_VALUE)
+  const [newSubasset, setNewSubasset] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -27,37 +48,58 @@ export const AddRowModal = ({ isOpen, onClose, onCreate }: AddRowModalProps) => 
     }
 
     setDraft(initialDraft)
+    setSelectedAccount(getInitialSelectValue(accountOptions))
+    setNewAccount('')
+    setSelectedCurrency(getInitialSelectValue(currencyOptions))
+    setNewCurrency('')
+    setSelectedSubasset(getInitialSelectValue(subassetOptions))
+    setNewSubasset('')
     setError(null)
-  }, [isOpen])
+  }, [accountOptions, currencyOptions, isOpen, subassetOptions])
 
   if (!isOpen) {
     return null
   }
 
-  const updateField = <K extends keyof typeof draft>(field: K, value: (typeof draft)[K]) => {
-    setDraft((prev) => ({
-      ...prev,
-      [field]: value
-    }))
+  const resolveSelectedValue = (selected: string, custom: string): string => {
+    return selected === NEW_OPTION_VALUE ? sanitizeOption(custom) : sanitizeOption(selected)
   }
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
+    const cuenta = resolveSelectedValue(selectedAccount, newAccount)
+    const moneda = resolveSelectedValue(selectedCurrency, newCurrency).toUpperCase()
+    const subactivo = resolveSelectedValue(selectedSubasset, newSubasset).toUpperCase()
     const parsedAmount = parseAmountInput(draft.monto)
 
-    if (!draft.cuenta.trim()) {
+    if (!cuenta) {
       setError('La cuenta es obligatoria.')
       return
     }
 
-    if (!draft.moneda.trim()) {
+    if (!moneda) {
       setError('La moneda es obligatoria.')
       return
     }
 
-    if (!draft.subactivo.trim()) {
+    if (moneda.length > 12) {
+      setError('La moneda no puede superar 12 caracteres.')
+      return
+    }
+
+    if (!subactivo) {
       setError('El subactivo es obligatorio.')
+      return
+    }
+
+    if (subactivo.length > 20) {
+      setError('El subactivo no puede superar 20 caracteres.')
+      return
+    }
+
+    if (!HOLDING_TYPES.includes(draft.tipo)) {
+      setError('Tipo inválido.')
       return
     }
 
@@ -66,12 +108,17 @@ export const AddRowModal = ({ isOpen, onClose, onCreate }: AddRowModalProps) => 
       return
     }
 
+    if (parsedAmount < 0) {
+      setError('El monto no puede ser negativo.')
+      return
+    }
+
     onCreate({
-      cuenta: draft.cuenta.trim(),
-      moneda: draft.moneda.trim().toUpperCase(),
+      cuenta,
+      moneda,
       monto: parsedAmount,
       tipo: draft.tipo,
-      subactivo: draft.subactivo.trim().toUpperCase()
+      subactivo
     })
 
     onClose()
@@ -83,17 +130,49 @@ export const AddRowModal = ({ isOpen, onClose, onCreate }: AddRowModalProps) => 
         <h2 id="add-row-title">Agregar fila</h2>
 
         <form onSubmit={handleSubmit} className="form-grid">
-          <label htmlFor="add-cuenta">Cuenta</label>
-          <input id="add-cuenta" value={draft.cuenta} onChange={(event) => updateField('cuenta', event.target.value)} required />
+          <label htmlFor="add-cuenta-select">Cuenta</label>
+          <select id="add-cuenta-select" value={selectedAccount} onChange={(event) => setSelectedAccount(event.target.value)}>
+            {accountOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+            <option value={NEW_OPTION_VALUE}>+ Nueva cuenta</option>
+          </select>
+          {selectedAccount === NEW_OPTION_VALUE ? (
+            <input
+              id="add-cuenta-new"
+              value={newAccount}
+              onChange={(event) => setNewAccount(event.target.value)}
+              placeholder="Escribí una nueva cuenta"
+              required
+            />
+          ) : null}
 
-          <label htmlFor="add-moneda">Moneda</label>
-          <input id="add-moneda" value={draft.moneda} onChange={(event) => updateField('moneda', event.target.value)} required />
+          <label htmlFor="add-moneda-select">Moneda</label>
+          <select id="add-moneda-select" value={selectedCurrency} onChange={(event) => setSelectedCurrency(event.target.value)}>
+            {currencyOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+            <option value={NEW_OPTION_VALUE}>+ Nueva moneda</option>
+          </select>
+          {selectedCurrency === NEW_OPTION_VALUE ? (
+            <input
+              id="add-moneda-new"
+              value={newCurrency}
+              onChange={(event) => setNewCurrency(event.target.value)}
+              placeholder="Ej: EUR"
+              required
+            />
+          ) : null}
 
           <label htmlFor="add-monto">Monto</label>
           <input
             id="add-monto"
             value={draft.monto}
-            onChange={(event) => updateField('monto', event.target.value)}
+            onChange={(event) => setDraft((previous) => ({ ...previous, monto: event.target.value }))}
             inputMode="decimal"
             required
           />
@@ -102,7 +181,7 @@ export const AddRowModal = ({ isOpen, onClose, onCreate }: AddRowModalProps) => 
           <select
             id="add-tipo"
             value={draft.tipo}
-            onChange={(event) => updateField('tipo', event.target.value as HoldingType)}
+            onChange={(event) => setDraft((previous) => ({ ...previous, tipo: event.target.value as HoldingType }))}
             required
           >
             {HOLDING_TYPES.map((type) => (
@@ -112,13 +191,28 @@ export const AddRowModal = ({ isOpen, onClose, onCreate }: AddRowModalProps) => 
             ))}
           </select>
 
-          <label htmlFor="add-subactivo">Subactivo</label>
-          <input
-            id="add-subactivo"
-            value={draft.subactivo}
-            onChange={(event) => updateField('subactivo', event.target.value)}
-            required
-          />
+          <label htmlFor="add-subactivo-select">Subactivo</label>
+          <select
+            id="add-subactivo-select"
+            value={selectedSubasset}
+            onChange={(event) => setSelectedSubasset(event.target.value)}
+          >
+            {subassetOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+            <option value={NEW_OPTION_VALUE}>+ Nuevo subactivo</option>
+          </select>
+          {selectedSubasset === NEW_OPTION_VALUE ? (
+            <input
+              id="add-subactivo-new"
+              value={newSubasset}
+              onChange={(event) => setNewSubasset(event.target.value)}
+              placeholder="Ej: ETH"
+              required
+            />
+          ) : null}
 
           {error ? <p className="error-text">{error}</p> : null}
 
