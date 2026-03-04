@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AddRowModal } from './components/AddRowModal'
 import { AppHeader } from './components/AppHeader'
 import { AuthGate } from './components/AuthGate'
 import { ChartsSection } from './components/ChartsSection'
+import { GlobalFiltersBar } from './components/GlobalFiltersBar'
 import { HoldingsTable } from './components/HoldingsTable'
 import { SettingsModal } from './components/SettingsModal'
 import { SummaryCards } from './components/SummaryCards'
@@ -17,6 +18,9 @@ const EMPTY_TOTALS_BY_TYPE: Record<HoldingType, number> = {
   Crypto: 0,
   Other: 0
 }
+
+type Theme = 'dark' | 'light'
+const THEME_STORAGE_KEY = 'pfd-theme'
 
 function App() {
   return <AuthGate>{({ email, logout }) => <DashboardApp email={email} onLogout={logout} />}</AuthGate>
@@ -44,6 +48,23 @@ function DashboardApp({ email, onLogout }: DashboardAppProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isAddRowOpen, setIsAddRowOpen] = useState(false)
   const [filters, setFilters] = useState<DashboardFilters>(DEFAULT_DASHBOARD_FILTERS)
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window === 'undefined') {
+      return 'dark'
+    }
+
+    const stored = window.localStorage.getItem(THEME_STORAGE_KEY)
+    if (stored === 'dark' || stored === 'light') {
+      return stored
+    }
+
+    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+  })
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme)
+  }, [theme])
 
   const filteredRows = useMemo(() => applyDashboardFilters(rows, filters), [rows, filters])
 
@@ -116,6 +137,8 @@ function DashboardApp({ email, onLogout }: DashboardAppProps) {
           lastEditedAt={lastEditedAt}
           userEmail={email}
           onLogout={email ? onLogout : undefined}
+          theme={theme}
+          onToggleTheme={() => setTheme((previous) => (previous === 'dark' ? 'light' : 'dark'))}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onRestoreDemo={() => {
             if (window.confirm('Se van a restaurar las filas demo y las tasas por defecto. ¿Continuar?')) {
@@ -135,6 +158,16 @@ function DashboardApp({ email, onLogout }: DashboardAppProps) {
           </p>
         ) : null}
 
+        <GlobalFiltersBar
+          filters={filters}
+          currencies={currencies}
+          subassets={subassets}
+          filteredRowsCount={filteredRows.length}
+          totalRowsCount={rows.length}
+          onFiltersChange={setFilters}
+          onOpenAddModal={() => setIsAddRowOpen(true)}
+        />
+
         <SummaryCards
           totalUsdFinanciero={totals.usdFinanciero}
           totalUsdOficial={totals.usdOficial}
@@ -145,15 +178,9 @@ function DashboardApp({ email, onLogout }: DashboardAppProps) {
 
         <HoldingsTable
           rows={filteredRows}
-          totalRows={rows.length}
           settings={settings}
-          filters={filters}
-          currencies={currencies}
-          subassets={subassets}
-          onFiltersChange={setFilters}
           onUpdateRow={updateRow}
           onDeleteRow={deleteRow}
-          onOpenAddModal={() => setIsAddRowOpen(true)}
         />
       </main>
 

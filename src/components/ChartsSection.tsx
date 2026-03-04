@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { type CSSProperties, useMemo } from 'react'
 import {
   Bar,
   BarChart,
@@ -24,7 +24,7 @@ interface ChartsSectionProps {
   byAccount: ChartPoint[]
 }
 
-const PIE_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#f97316', '#8b5cf6', '#ef4444', '#14b8a6', '#64748b']
+const PIE_COLORS = ['#00d084', '#3b82f6', '#f59e0b', '#fb7185', '#8b5cf6', '#ef4444', '#14b8a6', '#06b6d4']
 
 const currencyTooltipFormatter = (value: number) => formatUsd(value)
 const formatPercentage = (value: number): string => `${value.toFixed(2)}%`
@@ -52,76 +52,118 @@ export const ChartsSection = ({ byType, bySubasset, byAccount }: ChartsSectionPr
     return map
   }, [bySubassetWithPercentage])
 
+  const tooltipStyle: CSSProperties = {
+    background: 'var(--tooltip-bg)',
+    border: '1px solid var(--tooltip-border)',
+    borderRadius: 10,
+    boxShadow: 'var(--tooltip-shadow)',
+    color: 'var(--tooltip-text)'
+  }
+
+  const tooltipTextStyle: CSSProperties = {
+    color: 'var(--tooltip-text)'
+  }
+
   return (
     <section className="charts-grid" aria-label="Gráficos">
       <article className="chart-card">
         <h2>Distribución por Tipo (USD Financiero)</h2>
-        <div className="chart-container">
-          <ResponsiveContainer width="100%" height={280}>
-            <PieChart>
-              <Pie data={byType} dataKey="value" nameKey="name" innerRadius={65} outerRadius={95} paddingAngle={2}>
-                {byType.map((entry, index) => (
-                  <Cell key={`${entry.name}-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip formatter={currencyTooltipFormatter} />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
+        {byType.length === 0 ? (
+          <p className="empty-state">Sin datos para los filtros actuales.</p>
+        ) : (
+          <div className="chart-container">
+            <ResponsiveContainer width="100%" height={280}>
+              <PieChart>
+                <Pie data={byType} dataKey="value" nameKey="name" innerRadius={65} outerRadius={95} paddingAngle={2}>
+                  {byType.map((entry, index) => (
+                    <Cell key={`${entry.name}-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={currencyTooltipFormatter}
+                  contentStyle={tooltipStyle}
+                  labelStyle={tooltipTextStyle}
+                  itemStyle={tooltipTextStyle}
+                />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </article>
 
       <article className="chart-card">
         <h2>Distribución por Subactivo (USD Financiero)</h2>
-        <div className="chart-container">
-          <ResponsiveContainer width="100%" height={320}>
-            <PieChart>
-              <Pie
-                data={bySubassetWithPercentage}
-                dataKey="value"
-                nameKey="name"
-                innerRadius={70}
-                outerRadius={105}
-                paddingAngle={2}
-              >
-                {bySubassetWithPercentage.map((entry, index) => (
-                  <Cell key={`${entry.name}-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip
-                formatter={(value, _name, item) => {
-                  const percentage = (item.payload as { percentage?: number })?.percentage ?? 0
-                  return [`${formatUsd(Number(value))} (${formatPercentage(percentage)})`, 'USD Financiero']
-                }}
-              />
-              <Legend
-                formatter={(value) => {
-                  const meta = subassetMeta.get(String(value))
+        {bySubassetWithPercentage.length === 0 ? (
+          <p className="empty-state">Sin datos para los filtros actuales.</p>
+        ) : (
+          <div className="chart-container">
+            <ResponsiveContainer width="100%" height={320}>
+              <PieChart>
+                <Pie
+                  data={bySubassetWithPercentage}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={70}
+                  outerRadius={105}
+                  paddingAngle={2}
+                >
+                  {bySubassetWithPercentage.map((entry, index) => (
+                    <Cell key={`${entry.name}-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(value, _name, item) => {
+                    const percentage = (item.payload as { percentage?: number })?.percentage ?? 0
+                    return [`${formatUsd(Number(value))} (${formatPercentage(percentage)})`, 'USD Financiero']
+                  }}
+                  contentStyle={tooltipStyle}
+                  labelStyle={tooltipTextStyle}
+                  itemStyle={tooltipTextStyle}
+                />
+                <Legend
+                  formatter={(value) => {
+                    const meta = subassetMeta.get(String(value))
 
-                  if (!meta) {
-                    return value
-                  }
+                    if (!meta) {
+                      return value
+                    }
 
-                  return `${value} · ${formatPercentage(meta.percentage)} · ${formatUsd(meta.value)}`
-                }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
+                    return `${value} · ${formatPercentage(meta.percentage)} · ${formatUsd(meta.value)}`
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </article>
 
       <article className="chart-card chart-card-wide">
         <h2>Totales por Cuenta (USD Financiero)</h2>
-        <div className="chart-container">
-          <ResponsiveContainer width="100%" height={320}>
-            <BarChart data={byAccount} margin={{ top: 4, right: 12, left: 8, bottom: 56 }}>
-              <XAxis dataKey="name" angle={-20} textAnchor="end" interval={0} height={70} />
-              <YAxis tickFormatter={(value) => `$${Math.round(value / 1000)}k`} width={70} />
-              <Tooltip formatter={currencyTooltipFormatter} />
-              <Bar dataKey="value" fill="#0ea5e9" radius={[8, 8, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        {byAccount.length === 0 ? (
+          <p className="empty-state">Sin datos para los filtros actuales.</p>
+        ) : (
+          <div className="chart-container">
+            <ResponsiveContainer width="100%" height={320}>
+              <BarChart data={byAccount} margin={{ top: 4, right: 12, left: 8, bottom: 56 }}>
+                <XAxis dataKey="name" angle={-20} textAnchor="end" interval={0} height={70} />
+                <YAxis tickFormatter={(value) => `$${Math.round(value / 1000)}k`} width={70} />
+                <Tooltip
+                  formatter={currencyTooltipFormatter}
+                  contentStyle={tooltipStyle}
+                  labelStyle={tooltipTextStyle}
+                  itemStyle={tooltipTextStyle}
+                />
+                <Bar
+                  dataKey="value"
+                  fill="var(--bar-fill)"
+                  radius={[8, 8, 0, 0]}
+                  activeBar={{ fill: 'var(--bar-active)', stroke: 'var(--bar-stroke)', strokeWidth: 1 }}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </article>
     </section>
   )

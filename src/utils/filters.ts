@@ -3,18 +3,26 @@ import { getSubassetCategory, type SubassetCategory } from './subasset'
 
 export interface DashboardFilters {
   searchTerm: string
-  typeFilter: 'ALL' | HoldingType
-  currencyFilter: 'ALL' | string
-  subassetCategoryFilter: 'ALL' | SubassetCategory
-  subassetFilter: 'ALL' | string
+  typeFilters: HoldingType[]
+  currencyFilters: string[]
+  subassetCategoryFilters: SubassetCategory[]
+  subassetFilters: string[]
 }
 
 export const DEFAULT_DASHBOARD_FILTERS: DashboardFilters = {
   searchTerm: '',
-  typeFilter: 'ALL',
-  currencyFilter: 'ALL',
-  subassetCategoryFilter: 'ALL',
-  subassetFilter: 'ALL'
+  typeFilters: [],
+  currencyFilters: [],
+  subassetCategoryFilters: [],
+  subassetFilters: []
+}
+
+const matchesMultiFilter = (value: string, selectedValues: string[]): boolean => {
+  if (selectedValues.length === 0) {
+    return true
+  }
+
+  return selectedValues.includes(value)
 }
 
 export const applyDashboardFilters = (rows: HoldingRow[], filters: DashboardFilters): HoldingRow[] => {
@@ -28,11 +36,10 @@ export const applyDashboardFilters = (rows: HoldingRow[], filters: DashboardFilt
       !normalizedSearch ||
       row.cuenta.toLowerCase().includes(normalizedSearch) ||
       row.subactivo.toLowerCase().includes(normalizedSearch)
-    const matchesType = filters.typeFilter === 'ALL' || row.tipo === filters.typeFilter
-    const matchesCurrency = filters.currencyFilter === 'ALL' || currency === filters.currencyFilter
-    const matchesSubassetCategory =
-      filters.subassetCategoryFilter === 'ALL' || getSubassetCategory(row) === filters.subassetCategoryFilter
-    const matchesSubasset = filters.subassetFilter === 'ALL' || subasset === filters.subassetFilter
+    const matchesType = matchesMultiFilter(row.tipo, filters.typeFilters)
+    const matchesCurrency = matchesMultiFilter(currency, filters.currencyFilters)
+    const matchesSubassetCategory = matchesMultiFilter(getSubassetCategory(row), filters.subassetCategoryFilters)
+    const matchesSubasset = matchesMultiFilter(subasset, filters.subassetFilters)
 
     return matchesSearch && matchesType && matchesCurrency && matchesSubassetCategory && matchesSubasset
   })

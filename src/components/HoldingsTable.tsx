@@ -2,9 +2,7 @@ import { type KeyboardEvent, useMemo, useState } from 'react'
 import type { HoldingRow, HoldingType, Settings } from '../types'
 import { HOLDING_TYPES } from '../types'
 import { convertRowToUsd } from '../utils/conversion'
-import type { DashboardFilters } from '../utils/filters'
 import { formatPlainNumber, formatUsd, parseAmountInput } from '../utils/number'
-import { SUBASSET_CATEGORIES, type SubassetCategory } from '../utils/subasset'
 
 type EditableField = 'cuenta' | 'moneda' | 'monto' | 'tipo' | 'subactivo'
 type SortColumn = EditableField | 'usdOficial' | 'usdFinanciero'
@@ -16,15 +14,9 @@ interface SortState {
 
 interface HoldingsTableProps {
   rows: HoldingRow[]
-  totalRows: number
   settings: Settings
-  filters: DashboardFilters
-  currencies: string[]
-  subassets: string[]
-  onFiltersChange: (filters: DashboardFilters) => void
   onUpdateRow: (id: string, patch: Partial<Omit<HoldingRow, 'id'>>) => void
   onDeleteRow: (id: string) => void
-  onOpenAddModal: () => void
 }
 
 interface EditingState {
@@ -42,18 +34,7 @@ const sortArrow = (sort: SortState, column: SortColumn): string => {
 
 const stringCompare = (a: string, b: string): number => a.localeCompare(b, 'es', { sensitivity: 'base' })
 
-export const HoldingsTable = ({
-  rows,
-  totalRows,
-  settings,
-  filters,
-  currencies,
-  subassets,
-  onFiltersChange,
-  onUpdateRow,
-  onDeleteRow,
-  onOpenAddModal
-}: HoldingsTableProps) => {
+export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow }: HoldingsTableProps) => {
   const [sortState, setSortState] = useState<SortState>({ column: 'usdFinanciero', direction: 'desc' })
   const [editing, setEditing] = useState<EditingState | null>(null)
   const [draftValue, setDraftValue] = useState('')
@@ -258,105 +239,8 @@ export const HoldingsTable = ({
 
   return (
     <section className="table-section" aria-label="Holdings">
-      <div className="table-toolbar">
-        <div className="table-toolbar-main">
-          <label htmlFor="search-holdings" className="sr-only">
-            Buscar por cuenta o subactivo
-          </label>
-          <input
-            id="search-holdings"
-            className="search-input"
-            placeholder="Buscar por Cuenta o Subactivo"
-            value={filters.searchTerm}
-            onChange={(event) => onFiltersChange({ ...filters, searchTerm: event.target.value })}
-          />
-
-          <label>
-            <span className="filter-label">Tipo</span>
-            <select
-              value={filters.typeFilter}
-              onChange={(event) => onFiltersChange({ ...filters, typeFilter: event.target.value as 'ALL' | HoldingType })}
-            >
-              <option value="ALL">Todos</option>
-              {HOLDING_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            <span className="filter-label">Moneda</span>
-            <select
-              value={filters.currencyFilter}
-              onChange={(event) => onFiltersChange({ ...filters, currencyFilter: event.target.value })}
-            >
-              <option value="ALL">Todas</option>
-              {currencies.map((currency) => (
-                <option key={currency} value={currency}>
-                  {currency}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            <span className="filter-label">Tipo subactivo</span>
-            <select
-              value={filters.subassetCategoryFilter}
-              onChange={(event) =>
-                onFiltersChange({ ...filters, subassetCategoryFilter: event.target.value as 'ALL' | SubassetCategory })
-              }
-            >
-              <option value="ALL">Todos</option>
-              {SUBASSET_CATEGORIES.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            <span className="filter-label">Subactivo</span>
-            <select
-              value={filters.subassetFilter}
-              onChange={(event) => onFiltersChange({ ...filters, subassetFilter: event.target.value })}
-            >
-              <option value="ALL">Todos</option>
-              {subassets.map((subasset) => (
-                <option key={subasset} value={subasset}>
-                  {subasset}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        <div className="table-toolbar-actions">
-          <p className="muted-text">
-            Filas: {sortedRows.length}/{totalRows}
-          </p>
-          <button
-            type="button"
-            className="btn btn-tertiary"
-            onClick={() =>
-              onFiltersChange({
-                searchTerm: '',
-                typeFilter: 'ALL',
-                currencyFilter: 'ALL',
-                subassetCategoryFilter: 'ALL',
-                subassetFilter: 'ALL'
-              })
-            }
-          >
-            Limpiar filtros
-          </button>
-          <button type="button" className="btn btn-primary" onClick={onOpenAddModal}>
-            + Agregar fila
-          </button>
-        </div>
+      <div className="table-toolbar table-toolbar-compact">
+        <p className="muted-text">Holdings filtrados: {sortedRows.length}</p>
       </div>
 
       {error ? <p className="error-text">{error}</p> : null}

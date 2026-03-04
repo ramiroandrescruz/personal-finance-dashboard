@@ -6,6 +6,8 @@ interface AppHeaderProps {
   onOpenSettings: () => void
   onResetData: () => void
   onRestoreDemo: () => void
+  theme: 'dark' | 'light'
+  onToggleTheme: () => void
   userEmail?: string
   onLogout?: () => void
 }
@@ -16,6 +18,8 @@ export const AppHeader = ({
   onOpenSettings,
   onResetData,
   onRestoreDemo,
+  theme,
+  onToggleTheme,
   userEmail,
   onLogout
 }: AppHeaderProps) => {
@@ -36,6 +40,9 @@ export const AppHeader = ({
         ) : null}
         <button type="button" className="btn btn-secondary" onClick={onOpenSettings}>
           Ajustes
+        </button>
+        <button type="button" className="btn btn-tertiary" onClick={onToggleTheme}>
+          Tema: {theme === 'dark' ? 'Oscuro' : 'Claro'}
         </button>
         <button type="button" className="btn btn-tertiary" onClick={onRestoreDemo}>
           Restaurar demo

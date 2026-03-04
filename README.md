@@ -81,12 +81,14 @@ npm run preview
 - Agregar fila funciona
 - Eliminar fila con confirmacion funciona
 - Search por cuenta/subactivo funciona
-- Filtros por tipo/moneda/tipo de subactivo/subactivo funcionan
+- Filtros por tipo/moneda/tipo de subactivo/subactivo funcionan con seleccion multiple
+- Los filtros globales impactan resumen + graficos + tabla
 - Sort por columnas funciona
 - Cambiar tasas en Ajustes recalcula USD
 - Refresh mantiene datos (persistencia local)
 - Graficos reaccionan a cambios
 - Donut por subactivo muestra porcentaje + valor USD financiero
+- Existe toggle de tema oscuro/claro
 
 ## Login restringido (solo deploy)
 En deploy (GitHub Pages), la app exige login de Google y permite solo `VITE_ALLOWED_EMAIL`.
