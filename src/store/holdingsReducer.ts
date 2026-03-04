@@ -1,11 +1,12 @@
-import type { HoldingRow, HoldingsState, Settings } from '../types'
+import type { AllocationTargets, HoldingRow, HoldingsState, Settings } from '../types'
 
 export type HoldingsAction =
   | { type: 'ADD_ROW'; payload: HoldingRow }
   | { type: 'UPDATE_ROW'; payload: { id: string; patch: Partial<Omit<HoldingRow, 'id'>> } }
   | { type: 'DELETE_ROW'; payload: { id: string } }
   | { type: 'SET_SETTINGS'; payload: Settings }
-  | { type: 'RESET_DATA'; payload: { rows: HoldingRow[]; settings: Settings } }
+  | { type: 'SET_TARGETS'; payload: AllocationTargets }
+  | { type: 'RESET_DATA'; payload: { rows: HoldingRow[]; settings: Settings; targets: AllocationTargets } }
 
 const withEditTimestamp = (state: Omit<HoldingsState, 'lastEditedAt'>): HoldingsState => ({
   ...state,
@@ -17,7 +18,8 @@ export const holdingsReducer = (state: HoldingsState, action: HoldingsAction): H
     case 'ADD_ROW': {
       return withEditTimestamp({
         rows: [...state.rows, action.payload],
-        settings: state.settings
+        settings: state.settings,
+        targets: state.targets
       })
     }
 
@@ -42,7 +44,8 @@ export const holdingsReducer = (state: HoldingsState, action: HoldingsAction): H
 
       return withEditTimestamp({
         rows: nextRows,
-        settings: state.settings
+        settings: state.settings,
+        targets: state.targets
       })
     }
 
@@ -55,21 +58,32 @@ export const holdingsReducer = (state: HoldingsState, action: HoldingsAction): H
 
       return withEditTimestamp({
         rows: nextRows,
-        settings: state.settings
+        settings: state.settings,
+        targets: state.targets
       })
     }
 
     case 'SET_SETTINGS': {
       return withEditTimestamp({
         rows: state.rows,
-        settings: action.payload
+        settings: action.payload,
+        targets: state.targets
+      })
+    }
+
+    case 'SET_TARGETS': {
+      return withEditTimestamp({
+        rows: state.rows,
+        settings: state.settings,
+        targets: action.payload
       })
     }
 
     case 'RESET_DATA': {
       return withEditTimestamp({
         rows: action.payload.rows,
-        settings: action.payload.settings
+        settings: action.payload.settings,
+        targets: action.payload.targets
       })
     }
 

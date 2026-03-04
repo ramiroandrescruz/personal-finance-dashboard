@@ -89,6 +89,7 @@ npm run preview
 - Graficos reaccionan a cambios
 - Donut por subactivo muestra porcentaje + valor USD financiero
 - Existe toggle de tema oscuro/claro
+- Objetivos de asignación por Tipo/Subactivo con alertas de desvío
 
 ## Login restringido (solo deploy)
 En deploy (GitHub Pages), la app exige login de Google y permite solo `VITE_ALLOWED_EMAIL`.

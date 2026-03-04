@@ -18,9 +18,16 @@ export interface Settings {
   arsUsdFinanciero: number
 }
 
+export interface AllocationTargets {
+  byType: Partial<Record<HoldingType, number>>
+  bySubasset: Record<string, number>
+  alertThresholdPct: number
+}
+
 export interface HoldingsState {
   rows: HoldingRow[]
   settings: Settings
+  targets: AllocationTargets
   lastEditedAt: number | null
 }
 

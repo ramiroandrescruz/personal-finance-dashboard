@@ -17,6 +17,11 @@ const initialState: HoldingsState = {
     arsUsdOficial: 1400,
     arsUsdFinanciero: 1600
   },
+  targets: {
+    byType: {},
+    bySubasset: {},
+    alertThresholdPct: 5
+  },
   lastEditedAt: null
 }
 
@@ -62,5 +67,20 @@ describe('holdingsReducer', () => {
     })
 
     expect(state.rows).toHaveLength(0)
+  })
+
+  it('actualiza objetivos de asignacion', () => {
+    const state = holdingsReducer(initialState, {
+      type: 'SET_TARGETS',
+      payload: {
+        byType: { Crypto: 30 },
+        bySubasset: { BTC: 15 },
+        alertThresholdPct: 4
+      }
+    })
+
+    expect(state.targets.byType.Crypto).toBe(30)
+    expect(state.targets.bySubasset.BTC).toBe(15)
+    expect(state.targets.alertThresholdPct).toBe(4)
   })
 })

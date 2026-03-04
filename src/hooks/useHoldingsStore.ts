@@ -1,7 +1,8 @@
 import { useCallback, useMemo, useReducer, useState } from 'react'
 import { cloneDemoRows, DEFAULT_SETTINGS } from '../data/demo'
 import { holdingsReducer } from '../store/holdingsReducer'
-import type { HoldingRow, HoldingsState, Settings } from '../types'
+import type { AllocationTargets, HoldingRow, HoldingsState, Settings } from '../types'
+import { DEFAULT_ALLOCATION_TARGETS, sanitizeTargets } from '../utils/allocationTargets'
 import { loadDashboardData, saveDashboardData } from '../utils/storage'
 import { useDebouncedEffect } from './useDebouncedEffect'
 
@@ -23,6 +24,7 @@ export const useHoldingsStore = () => {
     (persisted): HoldingsState => ({
       rows: persisted.rows,
       settings: persisted.settings,
+      targets: persisted.targets,
       lastEditedAt: null
     })
   )
@@ -34,12 +36,13 @@ export const useHoldingsStore = () => {
       saveDashboardData({
         rows: state.rows,
         settings: state.settings,
+        targets: state.targets,
         updatedAt: savedAt
       })
       setLastSavedAt(savedAt)
     },
     350,
-    [state.rows, state.settings]
+    [state.rows, state.settings, state.targets]
   )
 
   const addRow = useCallback((draft: Omit<HoldingRow, 'id'>) => {
@@ -65,7 +68,8 @@ export const useHoldingsStore = () => {
       type: 'RESET_DATA',
       payload: {
         rows: cloneDemoRows(),
-        settings: { ...DEFAULT_SETTINGS }
+        settings: { ...DEFAULT_SETTINGS },
+        targets: { ...DEFAULT_ALLOCATION_TARGETS, byType: {}, bySubasset: {} }
       }
     })
   }, [])
@@ -75,7 +79,8 @@ export const useHoldingsStore = () => {
       type: 'RESET_DATA',
       payload: {
         rows: [],
-        settings: { ...DEFAULT_SETTINGS }
+        settings: { ...DEFAULT_SETTINGS },
+        targets: { ...DEFAULT_ALLOCATION_TARGETS, byType: {}, bySubasset: {} }
       }
     })
   }, [])
@@ -84,9 +89,14 @@ export const useHoldingsStore = () => {
     dispatch({ type: 'SET_SETTINGS', payload: settings })
   }, [])
 
+  const updateTargets = useCallback((targets: AllocationTargets) => {
+    dispatch({ type: 'SET_TARGETS', payload: sanitizeTargets(targets) })
+  }, [])
+
   return {
     rows: state.rows,
     settings: state.settings,
+    targets: state.targets,
     lastEditedAt: state.lastEditedAt,
     lastSavedAt,
     addRow,
@@ -94,6 +104,7 @@ export const useHoldingsStore = () => {
     deleteRow,
     restoreDemo,
     resetData,
-    updateSettings
+    updateSettings,
+    updateTargets
   }
 }

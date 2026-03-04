@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AddRowModal } from './components/AddRowModal'
+import { AllocationTargetsPanel } from './components/AllocationTargetsPanel'
 import { AppHeader } from './components/AppHeader'
 import { AuthGate } from './components/AuthGate'
 import { ChartsSection } from './components/ChartsSection'
@@ -35,6 +36,7 @@ function DashboardApp({ email, onLogout }: DashboardAppProps) {
   const {
     rows,
     settings,
+    targets,
     lastEditedAt,
     lastSavedAt,
     addRow,
@@ -42,7 +44,8 @@ function DashboardApp({ email, onLogout }: DashboardAppProps) {
     deleteRow,
     restoreDemo,
     resetData,
-    updateSettings
+    updateSettings,
+    updateTargets
   } = useHoldingsStore()
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
@@ -172,6 +175,13 @@ function DashboardApp({ email, onLogout }: DashboardAppProps) {
           totalUsdFinanciero={totals.usdFinanciero}
           totalUsdOficial={totals.usdOficial}
           totalsByType={totals.byType}
+        />
+
+        <AllocationTargetsPanel
+          byType={chartsData.byType}
+          bySubasset={chartsData.bySubasset}
+          targets={targets}
+          onTargetsChange={updateTargets}
         />
 
         <ChartsSection byType={chartsData.byType} bySubasset={chartsData.bySubasset} byAccount={chartsData.byAccount} />
