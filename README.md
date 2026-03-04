@@ -6,7 +6,7 @@ Dashboard estatico para gestionar holdings personales con edicion inline, grafic
 Si solo queres levantarlo y probar:
 
 ```bash
-cd /Users/ramirocruz/Documents/webapp
+cd /Users/ramirocruz/Documents
 npm install
 npm run dev
 ```
@@ -30,7 +30,7 @@ Si alguno falla con `command not found`, instala Node o carga tu `nvm` antes de 
 1. Entrar al proyecto:
 
 ```bash
-cd /Users/ramirocruz/Documents/webapp
+cd /Users/ramirocruz/Documents
 ```
 
 2. Instalar dependencias:
@@ -81,11 +81,12 @@ npm run preview
 - Agregar fila funciona
 - Eliminar fila con confirmacion funciona
 - Search por cuenta/subactivo funciona
-- Filtros por tipo/moneda funcionan
+- Filtros por tipo/moneda/tipo de subactivo/subactivo funcionan
 - Sort por columnas funciona
 - Cambiar tasas en Ajustes recalcula USD
 - Refresh mantiene datos (persistencia local)
 - Graficos reaccionan a cambios
+- Donut por subactivo muestra porcentaje + valor USD financiero
 
 ## Login restringido (solo deploy)
 En deploy (GitHub Pages), la app exige login de Google y permite solo `VITE_ALLOWED_EMAIL`.

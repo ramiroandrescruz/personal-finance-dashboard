@@ -119,7 +119,12 @@ function DashboardApp({ email, onLogout }: DashboardAppProps) {
           totalsByType={totals.byType}
         />
 
-        <ChartsSection byType={chartsData.byType} bySubasset={chartsData.bySubasset} byAccount={chartsData.byAccount} />
+        <ChartsSection
+          byType={chartsData.byType}
+          bySubasset={chartsData.bySubasset}
+          byAccount={chartsData.byAccount}
+          totalUsdFinanciero={totals.usdFinanciero}
+        />
 
         <HoldingsTable
           rows={rows}

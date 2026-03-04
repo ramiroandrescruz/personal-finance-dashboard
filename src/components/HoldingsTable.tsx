@@ -3,6 +3,7 @@ import type { HoldingRow, HoldingType, Settings } from '../types'
 import { HOLDING_TYPES } from '../types'
 import { convertRowToUsd } from '../utils/conversion'
 import { formatPlainNumber, formatUsd, parseAmountInput } from '../utils/number'
+import { getSubassetCategory, SUBASSET_CATEGORIES, type SubassetCategory } from '../utils/subasset'
 
 type EditableField = 'cuenta' | 'moneda' | 'monto' | 'tipo' | 'subactivo'
 type SortColumn = EditableField | 'usdOficial' | 'usdFinanciero'
@@ -39,6 +40,8 @@ export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow, onOpen
   const [searchTerm, setSearchTerm] = useState('')
   const [typeFilter, setTypeFilter] = useState<'ALL' | HoldingType>('ALL')
   const [currencyFilter, setCurrencyFilter] = useState<'ALL' | string>('ALL')
+  const [subassetCategoryFilter, setSubassetCategoryFilter] = useState<'ALL' | SubassetCategory>('ALL')
+  const [subassetFilter, setSubassetFilter] = useState<'ALL' | string>('ALL')
   const [sortState, setSortState] = useState<SortState>({ column: 'usdFinanciero', direction: 'desc' })
   const [editing, setEditing] = useState<EditingState | null>(null)
   const [draftValue, setDraftValue] = useState('')
@@ -60,6 +63,12 @@ export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow, onOpen
     )
   }, [rows])
 
+  const subassets = useMemo(() => {
+    return Array.from(new Set(rows.map((row) => row.subactivo.trim().toUpperCase()).filter(Boolean))).sort((a, b) =>
+      stringCompare(a, b)
+    )
+  }, [rows])
+
   const filteredRows = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase()
 
@@ -71,10 +80,13 @@ export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow, onOpen
         row.subactivo.toLowerCase().includes(normalizedSearch)
       const matchesType = typeFilter === 'ALL' || row.tipo === typeFilter
       const matchesCurrency = currencyFilter === 'ALL' || currency === currencyFilter
+      const matchesSubassetCategory =
+        subassetCategoryFilter === 'ALL' || getSubassetCategory(row) === subassetCategoryFilter
+      const matchesSubasset = subassetFilter === 'ALL' || row.subactivo.trim().toUpperCase() === subassetFilter
 
-      return matchesSearch && matchesType && matchesCurrency
+      return matchesSearch && matchesType && matchesCurrency && matchesSubassetCategory && matchesSubasset
     })
-  }, [rows, searchTerm, typeFilter, currencyFilter])
+  }, [rows, searchTerm, typeFilter, currencyFilter, subassetCategoryFilter, subassetFilter])
 
   const sortedRows = useMemo(() => {
     const sorted = [...filteredRows]
@@ -297,6 +309,33 @@ export const HoldingsTable = ({ rows, settings, onUpdateRow, onDeleteRow, onOpen
               {currencies.map((currency) => (
                 <option key={currency} value={currency}>
                   {currency}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            <span className="filter-label">Tipo subactivo</span>
+            <select
+              value={subassetCategoryFilter}
+              onChange={(event) => setSubassetCategoryFilter(event.target.value as 'ALL' | SubassetCategory)}
+            >
+              <option value="ALL">Todos</option>
+              {SUBASSET_CATEGORIES.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            <span className="filter-label">Subactivo</span>
+            <select value={subassetFilter} onChange={(event) => setSubassetFilter(event.target.value)}>
+              <option value="ALL">Todos</option>
+              {subassets.map((subasset) => (
+                <option key={subasset} value={subasset}>
+                  {subasset}
                 </option>
               ))}
             </select>

@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import {
   Bar,
   BarChart,
@@ -21,13 +22,24 @@ interface ChartsSectionProps {
   byType: ChartPoint[]
   bySubasset: ChartPoint[]
   byAccount: ChartPoint[]
+  totalUsdFinanciero: number
 }
 
 const PIE_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#f97316', '#8b5cf6', '#ef4444', '#14b8a6', '#64748b']
 
 const currencyTooltipFormatter = (value: number) => formatUsd(value)
+const formatPercentage = (value: number): string => `${value.toFixed(2)}%`
 
-export const ChartsSection = ({ byType, bySubasset, byAccount }: ChartsSectionProps) => {
+export const ChartsSection = ({ byType, bySubasset, byAccount, totalUsdFinanciero }: ChartsSectionProps) => {
+  const bySubassetWithPercentage = useMemo(() => {
+    const total = bySubasset.reduce((accumulator, item) => accumulator + item.value, 0)
+
+    return bySubasset.map((item) => ({
+      ...item,
+      percentage: total > 0 ? (item.value / total) * 100 : 0
+    }))
+  }, [bySubasset])
+
   return (
     <section className="charts-grid" aria-label="Gráficos">
       <article className="chart-card">
@@ -52,15 +64,42 @@ export const ChartsSection = ({ byType, bySubasset, byAccount }: ChartsSectionPr
         <div className="chart-container">
           <ResponsiveContainer width="100%" height={280}>
             <PieChart>
-              <Pie data={bySubasset} dataKey="value" nameKey="name" innerRadius={65} outerRadius={95} paddingAngle={2}>
-                {bySubasset.map((entry, index) => (
+              <Pie
+                data={bySubassetWithPercentage}
+                dataKey="value"
+                nameKey="name"
+                innerRadius={65}
+                outerRadius={95}
+                paddingAngle={2}
+              >
+                {bySubassetWithPercentage.map((entry, index) => (
                   <Cell key={`${entry.name}-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip formatter={currencyTooltipFormatter} />
+              <Tooltip
+                formatter={(value, _name, item) => {
+                  const percentage = (item.payload as { percentage?: number })?.percentage ?? 0
+                  return [`${formatUsd(Number(value))} (${formatPercentage(percentage)})`, 'USD Financiero']
+                }}
+              />
               <Legend />
             </PieChart>
           </ResponsiveContainer>
+        </div>
+
+        <div className="subasset-breakdown" aria-label="Detalle por subactivo">
+          {bySubassetWithPercentage.map((entry) => (
+            <div key={entry.name} className="subasset-breakdown-row">
+              <span>{entry.name}</span>
+              <span>{formatPercentage(entry.percentage)}</span>
+              <span>{formatUsd(entry.value)}</span>
+            </div>
+          ))}
+          <div className="subasset-breakdown-total">
+            <span>Total</span>
+            <span>{formatPercentage(totalUsdFinanciero > 0 ? 100 : 0)}</span>
+            <span>{formatUsd(totalUsdFinanciero)}</span>
+          </div>
         </div>
       </article>
 
