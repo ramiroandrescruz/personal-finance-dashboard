@@ -57,8 +57,8 @@ export interface TransferDraft {
   moneda: string
   monto: number
   cantidad: number | null
-  tipo?: HoldingType
-  subactivo?: string
+  tipo: HoldingType
+  subactivo: string
   tags: string[]
   note?: string
 }
@@ -368,10 +368,9 @@ export const useHoldingsStore = ({ userId, cloudSyncEnabled = false }: UseHoldin
       const transferOutId = generateId()
       const transferInId = generateId()
 
-      // Find the source row to use its tipo and subactivo
-      const sourceRow = state.rows.find(r => r.cuenta === draft.cuentaFrom && r.moneda === draft.moneda && r.monto > 0)
-      const tipo = draft.tipo || (sourceRow ? sourceRow.tipo : 'Cash')
-      const subactivo = draft.subactivo || (sourceRow ? sourceRow.subactivo : draft.moneda)
+      // For transfers, use the specified tipo and subactivo
+      const tipo = draft.tipo || 'Cash'
+      const subactivo = draft.subactivo || draft.moneda
 
       dispatchWithHistory({
         type: 'ADD_MOVEMENTS',

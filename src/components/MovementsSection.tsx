@@ -165,6 +165,8 @@ export const MovementsSection = ({
         moneda,
         monto: parsedAmount,
         cantidad: parsedQuantity,
+        tipo: form.tipo,
+        subactivo: form.subactivo,
         tags,
         note
       })
@@ -378,6 +380,32 @@ export const MovementsSection = ({
 
               <TextInput
                 id="movement-subasset"
+                label="Subactivo"
+                list={subassetListId}
+                value={form.subactivo}
+                onChange={(event) => setForm((previous) => ({ ...previous, subactivo: event.target.value }))}
+                required
+              />
+              <datalist id={subassetListId}>
+                {subassetOptions.map((option) => (
+                  <option key={option} value={option} />
+                ))}
+              </datalist>
+            </>
+          )}
+
+          {form.mode === 'transfer' && (
+            <>
+              <NativeSelect
+                id="transfer-type"
+                label="Tipo de activo a transferir"
+                value={form.tipo}
+                onChange={(event) => setForm((previous) => ({ ...previous, tipo: event.target.value as HoldingType }))}
+                data={HOLDING_TYPES.map((type) => ({ value: type, label: type }))}
+              />
+
+              <TextInput
+                id="transfer-subasset"
                 label="Subactivo"
                 list={subassetListId}
                 value={form.subactivo}
