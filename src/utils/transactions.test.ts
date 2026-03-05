@@ -78,9 +78,11 @@ describe('transactions utils', () => {
 
     const rows = rebuildRowsFromMovements(movements)
 
-    expect(rows).toHaveLength(1)
-    expect(rows[0]?.cuenta).toBe('Cuenta B')
-    expect(rows[0]?.monto).toBe(500)
+    expect(rows).toHaveLength(2)
+    const cuentaA = rows.find(r => r.cuenta === 'Cuenta A')
+    const cuentaB = rows.find(r => r.cuenta === 'Cuenta B')
+    expect(cuentaA?.monto).toBe(0)
+    expect(cuentaB?.monto).toBe(500)
   })
 
   it('genera movimientos de apertura desde holdings legacy', () => {

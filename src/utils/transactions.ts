@@ -119,7 +119,7 @@ export const rebuildRowsFromMovements = (movements: HoldingMovement[]): HoldingR
     const nextAmount = item.monto > EPSILON ? item.monto : 0
     const nextQuantity = item.hasCantidad ? (item.cantidad > EPSILON ? item.cantidad : 0) : null
 
-    if (nextAmount === 0 && (nextQuantity === null || nextQuantity === 0)) {
+    if (nextAmount === 0 && nextQuantity === 0) {
       return
     }
 
