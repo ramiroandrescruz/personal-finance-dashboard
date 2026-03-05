@@ -183,7 +183,7 @@ export const AuthGate = ({ children }: AuthGateProps) => {
       <section className="auth-card" aria-live="polite">
         <h1>Ingresar al dashboard</h1>
         <p>Acceso restringido al email autorizado.</p>
-        <button type="button" className="btn btn-primary" onClick={handleSignIn} disabled={isSigningIn || status === 'loading'}>
+        <button type="button" className="pf-btn pf-btn-primary" onClick={handleSignIn} disabled={isSigningIn || status === 'loading'}>
           {isSigningIn ? 'Abriendo Google...' : 'Ingresar con Google'}
         </button>
         {status === 'loading' ? <p className="muted-text">Inicializando autenticación...</p> : null}

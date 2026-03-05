@@ -170,10 +170,10 @@ export const GlobalFiltersBar = ({
           <button
             key={preset.id}
             type="button"
-            className="btn btn-tertiary btn-preset"
+            className="pf-btn pf-btn-tertiary pf-btn-preset"
             onClick={() => onFiltersChange(cloneFilters(preset.filters))}
           >
-            <span className="btn-label">{preset.label}</span>
+            <span className="pf-btn-label">{preset.label}</span>
           </button>
         ))}
       </div>
@@ -190,7 +190,7 @@ export const GlobalFiltersBar = ({
         </label>
         <button
           type="button"
-          className="btn btn-tertiary"
+          className="pf-btn pf-btn-tertiary"
           onClick={() => {
             const saved = onSaveCurrentView(viewName)
 
@@ -200,7 +200,7 @@ export const GlobalFiltersBar = ({
             }
           }}
         >
-          <span className="btn-label">Guardar vista</span>
+          <span className="pf-btn-label">Guardar vista</span>
         </button>
 
         <label className="saved-views-select" htmlFor="saved-view-select">
@@ -217,7 +217,7 @@ export const GlobalFiltersBar = ({
 
         <button
           type="button"
-          className={`btn btn-tertiary ${!selectedViewId ? 'is-disabled' : ''}`}
+          className={`pf-btn pf-btn-tertiary ${!selectedViewId ? 'is-disabled' : ''}`}
           aria-disabled={!selectedViewId}
           onClick={() => {
             if (!selectedViewId) {
@@ -227,12 +227,12 @@ export const GlobalFiltersBar = ({
             onApplySavedView(selectedViewId)
           }}
         >
-          <span className="btn-label">Aplicar vista</span>
+          <span className="pf-btn-label">Aplicar vista</span>
         </button>
 
         <button
           type="button"
-          className={`btn btn-danger-outline ${!selectedViewId ? 'is-disabled' : ''}`}
+          className={`pf-btn pf-btn-danger-outline ${!selectedViewId ? 'is-disabled' : ''}`}
           aria-disabled={!selectedViewId}
           onClick={() => {
             if (!selectedViewId) {
@@ -243,7 +243,7 @@ export const GlobalFiltersBar = ({
             setSelectedViewId('')
           }}
         >
-          <span className="btn-label">Eliminar vista</span>
+          <span className="pf-btn-label">Eliminar vista</span>
         </button>
       </div>
 
@@ -306,14 +306,14 @@ export const GlobalFiltersBar = ({
         </p>
         <button
           type="button"
-          className={`btn btn-tertiary ${!hasActiveFilters ? 'is-disabled' : ''}`}
+          className={`pf-btn pf-btn-tertiary ${!hasActiveFilters ? 'is-disabled' : ''}`}
           aria-disabled={!hasActiveFilters}
           onClick={() => onFiltersChange(cloneFilters(DEFAULT_DASHBOARD_FILTERS))}
         >
-          <span className="btn-label">Limpiar filtros</span>
+          <span className="pf-btn-label">Limpiar filtros</span>
         </button>
-        <button type="button" className="btn btn-primary" onClick={onOpenAddMovement}>
-          <span className="btn-label">+ Agregar movimiento</span>
+        <button type="button" className="pf-btn pf-btn-primary" onClick={onOpenAddMovement}>
+          <span className="pf-btn-label">+ Agregar movimiento</span>
         </button>
       </div>
     </section>

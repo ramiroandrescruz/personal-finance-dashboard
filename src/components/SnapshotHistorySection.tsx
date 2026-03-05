@@ -99,7 +99,7 @@ export const SnapshotHistorySection = ({ snapshots, onCaptureSnapshot }: Snapsho
           )}
         </div>
 
-        <button type="button" className="btn btn-primary" onClick={onCaptureSnapshot}>
+        <button type="button" className="pf-btn pf-btn-primary" onClick={onCaptureSnapshot}>
           {hasTodaySnapshot ? 'Actualizar snapshot de hoy' : 'Guardar snapshot de hoy'}
         </button>
       </div>

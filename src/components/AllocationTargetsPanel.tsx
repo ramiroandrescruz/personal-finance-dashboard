@@ -80,7 +80,7 @@ export const AllocationTargetsPanel = ({
             />
           </div>
           {onClose ? (
-            <button type="button" className="btn btn-tertiary" onClick={onClose}>
+            <button type="button" className="pf-btn pf-btn-tertiary" onClick={onClose}>
               Cerrar
             </button>
           ) : null}

@@ -398,10 +398,10 @@ export const HoldingsTable = ({
 
       <div className="table-bulk-toolbar">
         <p className="muted-text">Seleccionadas: {selectedCount}</p>
-        <button type="button" className="btn btn-tertiary" disabled={selectedCount === 0} onClick={openBulkEdit}>
+        <button type="button" className="pf-btn pf-btn-tertiary" disabled={selectedCount === 0} onClick={openBulkEdit}>
           Editar seleccionadas
         </button>
-        <button type="button" className="btn btn-tertiary" disabled={selectedCount === 0} onClick={() => setSelectedRowIds([])}>
+        <button type="button" className="pf-btn pf-btn-tertiary" disabled={selectedCount === 0} onClick={() => setSelectedRowIds([])}>
           Limpiar selección
         </button>
       </div>
@@ -501,12 +501,12 @@ export const HoldingsTable = ({
                   <td>{renderEditableCell(row, 'subactivo')}</td>
                   <td>
                     <div className="row-actions">
-                      <button type="button" className="btn btn-tertiary" onClick={() => onDuplicateRow(row.id)}>
+                      <button type="button" className="pf-btn pf-btn-tertiary" onClick={() => onDuplicateRow(row.id)}>
                         Duplicar
                       </button>
                       <button
                         type="button"
-                        className="btn btn-danger-outline"
+                        className="pf-btn pf-btn-danger-outline"
                         onClick={() => {
                           if (window.confirm(`¿Eliminar la fila de ${row.cuenta}?`)) {
                             onDeleteRow(row.id)
@@ -588,7 +588,7 @@ export const HoldingsTable = ({
             <div className="modal-actions">
               <button
                 type="button"
-                className="btn btn-tertiary"
+                className="pf-btn pf-btn-tertiary"
                 onClick={() => {
                   setIsBulkEditOpen(false)
                   setBulkError(null)
@@ -596,7 +596,7 @@ export const HoldingsTable = ({
               >
                 Cancelar
               </button>
-              <button type="button" className="btn btn-primary" onClick={applyBulkEdit}>
+              <button type="button" className="pf-btn pf-btn-primary" onClick={applyBulkEdit}>
                 Aplicar cambios
               </button>
             </div>

@@ -76,10 +76,10 @@ export const SettingsModal = ({ isOpen, settings, onClose, onSave }: SettingsMod
           {error ? <p className="error-text">{error}</p> : null}
 
           <div className="modal-actions">
-            <button type="button" className="btn btn-tertiary" onClick={onClose}>
+            <button type="button" className="pf-btn pf-btn-tertiary" onClick={onClose}>
               Cancelar
             </button>
-            <button type="submit" className="btn btn-primary">
+            <button type="submit" className="pf-btn pf-btn-primary">
               Guardar
             </button>
           </div>

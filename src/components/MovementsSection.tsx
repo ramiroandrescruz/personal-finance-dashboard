@@ -230,7 +230,7 @@ export const MovementsSection = ({
                 <td>
                   <button
                     type="button"
-                    className="btn btn-danger-outline"
+                    className="pf-btn pf-btn-danger-outline"
                     onClick={() => {
                       if (window.confirm('¿Eliminar este movimiento?')) {
                         onDeleteMovement(movement.id)
@@ -414,10 +414,10 @@ export const MovementsSection = ({
               {error ? <p className="error-text">{error}</p> : null}
 
               <div className="modal-actions">
-                <button type="button" className="btn btn-tertiary" onClick={onCloseCreate}>
+                <button type="button" className="pf-btn pf-btn-tertiary" onClick={onCloseCreate}>
                   Cancelar
                 </button>
-                <button type="submit" className="btn btn-primary">
+                <button type="submit" className="pf-btn pf-btn-primary">
                   Guardar movimiento
                 </button>
               </div>

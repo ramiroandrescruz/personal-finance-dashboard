@@ -67,12 +67,12 @@ export const AppHeader = ({
             {userEmail}
           </span>
         ) : null}
-        <button type="button" className="btn btn-secondary" onClick={onOpenSettings}>
-          <span className="btn-label">Ajustes</span>
+        <button type="button" className="pf-btn pf-btn-secondary" onClick={onOpenSettings}>
+          <span className="pf-btn-label">Ajustes</span>
         </button>
         <button
           type="button"
-          className={`btn btn-tertiary ${!canUndo ? 'is-disabled' : ''}`}
+          className={`pf-btn pf-btn-tertiary ${!canUndo ? 'is-disabled' : ''}`}
           aria-disabled={!canUndo}
           onClick={() => {
             if (!canUndo) {
@@ -83,11 +83,11 @@ export const AppHeader = ({
           }}
           title="Ctrl/Cmd + Z"
         >
-          <span className="btn-label">Deshacer</span>
+          <span className="pf-btn-label">Deshacer</span>
         </button>
         <button
           type="button"
-          className={`btn btn-tertiary ${!canRedo ? 'is-disabled' : ''}`}
+          className={`pf-btn pf-btn-tertiary ${!canRedo ? 'is-disabled' : ''}`}
           aria-disabled={!canRedo}
           onClick={() => {
             if (!canRedo) {
@@ -98,17 +98,17 @@ export const AppHeader = ({
           }}
           title="Ctrl/Cmd + Shift + Z"
         >
-          <span className="btn-label">Rehacer</span>
+          <span className="pf-btn-label">Rehacer</span>
         </button>
-        <button type="button" className="btn btn-tertiary" onClick={onToggleTheme}>
-          <span className="btn-label">Tema: {theme === 'dark' ? 'Oscuro' : 'Claro'}</span>
+        <button type="button" className="pf-btn pf-btn-tertiary" onClick={onToggleTheme}>
+          <span className="pf-btn-label">Tema: {theme === 'dark' ? 'Oscuro' : 'Claro'}</span>
         </button>
-        <button type="button" className="btn btn-danger" onClick={onResetData}>
-          <span className="btn-label">Resetear datos</span>
+        <button type="button" className="pf-btn pf-btn-danger" onClick={onResetData}>
+          <span className="pf-btn-label">Resetear datos</span>
         </button>
         {onLogout ? (
-          <button type="button" className="btn btn-tertiary" onClick={onLogout}>
-            <span className="btn-label">Cerrar sesión</span>
+          <button type="button" className="pf-btn pf-btn-tertiary" onClick={onLogout}>
+            <span className="pf-btn-label">Cerrar sesión</span>
           </button>
         ) : null}
       </div>

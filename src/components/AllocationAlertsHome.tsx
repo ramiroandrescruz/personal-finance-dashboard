@@ -18,7 +18,7 @@ export const AllocationAlertsHome = ({ thresholdPct, alerts, onOpenConfig }: All
           <p className="muted-text">Mostrando desvíos mayores a {formatPlainNumber(thresholdPct)}%</p>
         </div>
 
-        <button type="button" className="btn btn-secondary" onClick={onOpenConfig}>
+        <button type="button" className="pf-btn pf-btn-secondary" onClick={onOpenConfig}>
           Configurar objetivos
         </button>
       </div>
