@@ -165,8 +165,8 @@ export const MovementsSection = ({
         moneda,
         monto: parsedAmount,
         cantidad: parsedQuantity,
-        tipo: form.tipo,
-        subactivo,
+        tipo: 'Cash',
+        subactivo: moneda,
         tags,
         note
       })
@@ -368,27 +368,31 @@ export const MovementsSection = ({
             placeholder="Ej: 0.52 BTC o 20 shares"
           />
 
-          <NativeSelect
-            id="movement-type"
-            label="Tipo"
-            value={form.tipo}
-            onChange={(event) => setForm((previous) => ({ ...previous, tipo: event.target.value as HoldingType }))}
-            data={HOLDING_TYPES.map((type) => ({ value: type, label: type }))}
-          />
+          {form.mode === 'movement' && (
+            <>
+              <NativeSelect
+                id="movement-type"
+                label="Tipo"
+                value={form.tipo}
+                onChange={(event) => setForm((previous) => ({ ...previous, tipo: event.target.value as HoldingType }))}
+                data={HOLDING_TYPES.map((type) => ({ value: type, label: type }))}
+              />
 
-          <TextInput
-            id="movement-subasset"
-            label="Subactivo"
-            list={subassetListId}
-            value={form.subactivo}
-            onChange={(event) => setForm((previous) => ({ ...previous, subactivo: event.target.value }))}
-            required
-          />
-          <datalist id={subassetListId}>
-            {subassetOptions.map((option) => (
-              <option key={option} value={option} />
-            ))}
-          </datalist>
+              <TextInput
+                id="movement-subasset"
+                label="Subactivo"
+                list={subassetListId}
+                value={form.subactivo}
+                onChange={(event) => setForm((previous) => ({ ...previous, subactivo: event.target.value }))}
+                required
+              />
+              <datalist id={subassetListId}>
+                {subassetOptions.map((option) => (
+                  <option key={option} value={option} />
+                ))}
+              </datalist>
+            </>
+          )}
 
           <TextInput
             id="movement-tags"
