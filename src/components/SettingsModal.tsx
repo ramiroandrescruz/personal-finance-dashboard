@@ -56,7 +56,7 @@ export const SettingsModal = ({ isOpen, settings, onClose, onSave }: SettingsMod
           id="ars-oficial"
           label="ARS/USD Oficial"
           value={arsUsdOficial}
-          onChange={(event) => setArsUsdOficial(event.currentTarget.value)}
+          onChange={(event) => setArsUsdOficial(event.target.value)}
           inputMode="decimal"
           required
         />
@@ -65,7 +65,7 @@ export const SettingsModal = ({ isOpen, settings, onClose, onSave }: SettingsMod
           id="ars-financiero"
           label="ARS/USD Financiero"
           value={arsUsdFinanciero}
-          onChange={(event) => setArsUsdFinanciero(event.currentTarget.value)}
+          onChange={(event) => setArsUsdFinanciero(event.target.value)}
           inputMode="decimal"
           required
         />

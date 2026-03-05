@@ -543,21 +543,21 @@ export const HoldingsTable = ({
             id="bulk-cuenta"
             label="Cuenta"
             value={bulkDraft.cuenta}
-            onChange={(event) => setBulkDraft((previous) => ({ ...previous, cuenta: event.currentTarget.value }))}
+            onChange={(event) => setBulkDraft((previous) => ({ ...previous, cuenta: event.target.value }))}
           />
 
           <TextInput
             id="bulk-moneda"
             label="Moneda"
             value={bulkDraft.moneda}
-            onChange={(event) => setBulkDraft((previous) => ({ ...previous, moneda: event.currentTarget.value }))}
+            onChange={(event) => setBulkDraft((previous) => ({ ...previous, moneda: event.target.value }))}
           />
 
           <NativeSelect
             id="bulk-tipo"
             label="Tipo"
             value={bulkDraft.tipo}
-            onChange={(event) => setBulkDraft((previous) => ({ ...previous, tipo: event.currentTarget.value as BulkDraft['tipo'] }))}
+            onChange={(event) => setBulkDraft((previous) => ({ ...previous, tipo: event.target.value as BulkDraft['tipo'] }))}
             data={[{ value: '', label: 'Sin cambio' }, ...HOLDING_TYPES.map((type) => ({ value: type, label: type }))]}
           />
 
@@ -565,14 +565,14 @@ export const HoldingsTable = ({
             id="bulk-subactivo"
             label="Subactivo"
             value={bulkDraft.subactivo}
-            onChange={(event) => setBulkDraft((previous) => ({ ...previous, subactivo: event.currentTarget.value }))}
+            onChange={(event) => setBulkDraft((previous) => ({ ...previous, subactivo: event.target.value }))}
           />
 
           <TextInput
             id="bulk-tags"
             label="Tags (coma)"
             value={bulkDraft.tags}
-            onChange={(event) => setBulkDraft((previous) => ({ ...previous, tags: event.currentTarget.value }))}
+            onChange={(event) => setBulkDraft((previous) => ({ ...previous, tags: event.target.value }))}
             placeholder="largo plazo, liquidez"
           />
         </div>

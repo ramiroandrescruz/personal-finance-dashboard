@@ -125,7 +125,7 @@ export const GlobalFiltersBar = ({
         <TextInput
           label="Guardar vista actual"
           value={viewName}
-          onChange={(event) => setViewName(event.currentTarget.value)}
+          onChange={(event) => setViewName(event.target.value)}
           placeholder="Ej: Liquidez + crypto"
         />
         <AppButton
@@ -192,7 +192,7 @@ export const GlobalFiltersBar = ({
           className="filters-grid-wide"
           placeholder="Buscar por Cuenta o Subactivo"
           value={filters.searchTerm}
-          onChange={(event) => onFiltersChange({ ...filters, searchTerm: event.currentTarget.value })}
+          onChange={(event) => onFiltersChange({ ...filters, searchTerm: event.target.value })}
         />
 
         <MultiSelect

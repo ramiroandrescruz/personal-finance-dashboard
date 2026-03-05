@@ -267,7 +267,7 @@ export const MovementsSection = ({
             onChange={(event) =>
               setForm((previous) => ({
                 ...previous,
-                mode: event.currentTarget.value as ModalMode
+                mode: event.target.value as ModalMode
               }))
             }
             data={[
@@ -293,7 +293,7 @@ export const MovementsSection = ({
               onChange={(event) =>
                 setForm((previous) => ({
                   ...previous,
-                  kind: event.currentTarget.value as MovementFormState['kind']
+                  kind: event.target.value as MovementFormState['kind']
                 }))
               }
               data={[
@@ -372,7 +372,7 @@ export const MovementsSection = ({
             id="movement-type"
             label="Tipo"
             value={form.tipo}
-            onChange={(event) => setForm((previous) => ({ ...previous, tipo: event.currentTarget.value as HoldingType }))}
+            onChange={(event) => setForm((previous) => ({ ...previous, tipo: event.target.value as HoldingType }))}
             data={HOLDING_TYPES.map((type) => ({ value: type, label: type }))}
           />
 
