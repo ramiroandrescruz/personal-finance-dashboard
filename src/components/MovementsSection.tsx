@@ -281,7 +281,7 @@ export const MovementsSection = ({
             label="Fecha"
             type="date"
             value={form.date}
-            onChange={(value) => setForm((previous) => ({ ...previous, date: value }))}
+            onChange={(event) => setForm((previous) => ({ ...previous, date: event.target.value }))}
             required
           />
 
@@ -309,7 +309,7 @@ export const MovementsSection = ({
             label={form.mode === 'transfer' ? 'Cuenta origen' : 'Cuenta'}
             list={accountListId}
             value={form.cuenta}
-            onChange={(value) => setForm((previous) => ({ ...previous, cuenta: value }))}
+            onChange={(event) => setForm((previous) => ({ ...previous, cuenta: event.target.value }))}
             required
           />
           <datalist id={accountListId}>
@@ -325,7 +325,7 @@ export const MovementsSection = ({
                 label="Cuenta destino"
                 list={destinationAccountListId}
                 value={form.cuentaTo}
-                onChange={(value) => setForm((previous) => ({ ...previous, cuentaTo: value }))}
+                onChange={(event) => setForm((previous) => ({ ...previous, cuentaTo: event.target.value }))}
                 required
               />
               <datalist id={destinationAccountListId}>
@@ -341,7 +341,7 @@ export const MovementsSection = ({
             label="Moneda"
             list={currencyListId}
             value={form.moneda}
-            onChange={(value) => setForm((previous) => ({ ...previous, moneda: value }))}
+            onChange={(event) => setForm((previous) => ({ ...previous, moneda: event.target.value }))}
             required
           />
           <datalist id={currencyListId}>
@@ -355,7 +355,7 @@ export const MovementsSection = ({
             label="Monto"
             inputMode="decimal"
             value={form.monto}
-            onChange={(value) => setForm((previous) => ({ ...previous, monto: value }))}
+            onChange={(event) => setForm((previous) => ({ ...previous, monto: event.target.value }))}
             required
           />
 
@@ -364,7 +364,7 @@ export const MovementsSection = ({
             label="Cantidad (opcional)"
             inputMode="decimal"
             value={form.cantidad}
-            onChange={(value) => setForm((previous) => ({ ...previous, cantidad: value }))}
+            onChange={(event) => setForm((previous) => ({ ...previous, cantidad: event.target.value }))}
             placeholder="Ej: 0.52 BTC o 20 shares"
           />
 
@@ -381,7 +381,7 @@ export const MovementsSection = ({
             label="Subactivo"
             list={subassetListId}
             value={form.subactivo}
-            onChange={(value) => setForm((previous) => ({ ...previous, subactivo: value }))}
+            onChange={(event) => setForm((previous) => ({ ...previous, subactivo: event.target.value }))}
             required
           />
           <datalist id={subassetListId}>
@@ -394,7 +394,7 @@ export const MovementsSection = ({
             id="movement-tags"
             label="Tags (coma)"
             value={form.tags}
-            onChange={(value) => setForm((previous) => ({ ...previous, tags: value }))}
+            onChange={(event) => setForm((previous) => ({ ...previous, tags: event.target.value }))}
             placeholder="largo plazo, liquidez"
           />
 
@@ -402,7 +402,7 @@ export const MovementsSection = ({
             id="movement-note"
             label="Nota"
             value={form.note}
-            onChange={(value) => setForm((previous) => ({ ...previous, note: value }))}
+            onChange={(event) => setForm((previous) => ({ ...previous, note: event.target.value }))}
             placeholder="Compra del mes, rebalanceo, etc."
           />
 
