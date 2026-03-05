@@ -17,7 +17,7 @@ import { loadCloudDashboardData, saveCloudDashboardData } from '../utils/firebas
 import { getSnapshotDateKey } from '../utils/snapshots'
 import { loadDashboardData, saveDashboardData } from '../utils/storage'
 import { normalizeTags } from '../utils/tags'
-import { normalizeMovement } from '../utils/transactions'
+import { normalizeMovement, validateAssetDebitAgainstRows, validateTransferAgainstRows } from '../utils/transactions'
 import { useDebouncedEffect } from './useDebouncedEffect'
 
 const createFallbackId = (): string => `${Date.now()}-${Math.random().toString(16).slice(2)}`
@@ -59,6 +59,23 @@ export interface TransferDraft {
   cantidad: number | null
   tipo: HoldingType
   subactivo: string
+  tags: string[]
+  note?: string
+}
+
+export type TransferCreateResult = { ok: true } | { ok: false; error: string }
+
+export interface ConversionDraft {
+  date: string
+  cuentaFrom: string
+  cuentaTo: string
+  moneda: string
+  monto: number
+  cantidad: number | null
+  tipoFrom: HoldingType
+  subactivoFrom: string
+  tipoTo: HoldingType
+  subactivoTo: string
   tags: string[]
   note?: string
 }
@@ -363,7 +380,12 @@ export const useHoldingsStore = ({ userId, cloudSyncEnabled = false }: UseHoldin
   )
 
   const addTransferMovement = useCallback(
-    (draft: TransferDraft) => {
+    (draft: TransferDraft): TransferCreateResult => {
+      const validationError = validateTransferAgainstRows(state.rows, draft)
+      if (validationError) {
+        return { ok: false, error: validationError }
+      }
+
       const createdAt = Date.now()
       const transferOutId = generateId()
       const transferInId = generateId()
@@ -407,6 +429,67 @@ export const useHoldingsStore = ({ userId, cloudSyncEnabled = false }: UseHoldin
           })
         ]
       })
+
+      return { ok: true }
+    },
+    [dispatchWithHistory, state.rows]
+  )
+
+  const addConversionMovement = useCallback(
+    (draft: ConversionDraft): TransferCreateResult => {
+      const validationError = validateAssetDebitAgainstRows(state.rows, {
+        cuenta: draft.cuentaFrom,
+        moneda: draft.moneda,
+        monto: draft.monto,
+        cantidad: draft.cantidad,
+        tipo: draft.tipoFrom,
+        subactivo: draft.subactivoFrom
+      })
+      if (validationError) {
+        return { ok: false, error: validationError }
+      }
+
+      const createdAt = Date.now()
+      const outId = generateId()
+      const inId = generateId()
+
+      dispatchWithHistory({
+        type: 'ADD_MOVEMENTS',
+        payload: [
+          normalizeMovement({
+            id: outId,
+            date: draft.date,
+            kind: 'TRANSFER_OUT',
+            cuenta: draft.cuentaFrom,
+            moneda: draft.moneda,
+            monto: draft.monto,
+            cantidad: draft.cantidad,
+            tipo: draft.tipoFrom,
+            subactivo: draft.subactivoFrom,
+            tags: normalizeTags(draft.tags),
+            note: draft.note?.trim() ?? '',
+            createdAt,
+            linkedMovementId: inId
+          }),
+          normalizeMovement({
+            id: inId,
+            date: draft.date,
+            kind: 'TRANSFER_IN',
+            cuenta: draft.cuentaTo,
+            moneda: draft.moneda,
+            monto: draft.monto,
+            cantidad: draft.cantidad,
+            tipo: draft.tipoTo,
+            subactivo: draft.subactivoTo,
+            tags: normalizeTags(draft.tags),
+            note: draft.note?.trim() ?? '',
+            createdAt,
+            linkedMovementId: outId
+          })
+        ]
+      })
+
+      return { ok: true }
     },
     [dispatchWithHistory, state.rows]
   )
@@ -559,6 +642,7 @@ export const useHoldingsStore = ({ userId, cloudSyncEnabled = false }: UseHoldin
     canRedo: future.length > 0,
     addMovement,
     addTransferMovement,
+    addConversionMovement,
     deleteMovement,
     resetData,
     updateSettings,

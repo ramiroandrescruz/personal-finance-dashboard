@@ -2,13 +2,13 @@ import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { Modal, NativeSelect, TextInput } from '@mantine/core'
 import { HOLDING_TYPES } from '../types'
 import type { HoldingMovement, HoldingType } from '../types'
-import type { MovementDraft, TransferDraft } from '../hooks/useHoldingsStore'
+import type { ConversionDraft, MovementDraft, TransferCreateResult, TransferDraft } from '../hooks/useHoldingsStore'
 import { formatPlainNumber, formatQuantity, parseAmountInput } from '../utils/number'
 import { formatTags, parseTagsInput } from '../utils/tags'
 import { createMovementDraftDefaults, movementKindToLabel } from '../utils/transactions'
 import { AppButton } from './ui/AppButton'
 
-type ModalMode = 'movement' | 'transfer'
+type ModalMode = 'movement' | 'transfer' | 'conversion'
 
 interface MovementsSectionProps {
   movements: HoldingMovement[]
@@ -18,7 +18,8 @@ interface MovementsSectionProps {
   isCreateOpen: boolean
   onCloseCreate: () => void
   onCreateMovement: (draft: MovementDraft) => void
-  onCreateTransfer: (draft: TransferDraft) => void
+  onCreateTransfer: (draft: TransferDraft) => TransferCreateResult
+  onCreateConversion: (draft: ConversionDraft) => TransferCreateResult
   onDeleteMovement: (id: string) => void
 }
 
@@ -32,7 +33,9 @@ interface MovementFormState {
   monto: string
   cantidad: string
   tipo: HoldingType
+  tipoTo: HoldingType
   subactivo: string
+  subactivoTo: string
   tags: string
   note: string
 }
@@ -47,7 +50,9 @@ const emptyForm = (): MovementFormState => ({
   monto: '',
   cantidad: '',
   tipo: 'Cash',
+  tipoTo: 'Crypto',
   subactivo: '',
+  subactivoTo: '',
   tags: '',
   note: ''
 })
@@ -63,6 +68,7 @@ export const MovementsSection = ({
   onCloseCreate,
   onCreateMovement,
   onCreateTransfer,
+  onCreateConversion,
   onDeleteMovement
 }: MovementsSectionProps) => {
   const [form, setForm] = useState<MovementFormState>(emptyForm)
@@ -78,7 +84,9 @@ export const MovementsSection = ({
       cuenta: previous.cuenta || accountOptions[0] || '',
       moneda: previous.moneda || currencyOptions[0] || 'USD',
       subactivo: previous.subactivo || subassetOptions[0] || '',
-      tipo: previous.tipo
+      subactivoTo: previous.subactivoTo || subassetOptions[0] || '',
+      tipo: previous.tipo,
+      tipoTo: previous.tipoTo
     }))
     setError(null)
   }, [accountOptions, currencyOptions, isCreateOpen, subassetOptions])
@@ -106,6 +114,7 @@ export const MovementsSection = ({
     const cuentaTo = form.cuentaTo.trim()
     const moneda = form.moneda.trim().toUpperCase()
     const subactivo = form.subactivo.trim().toUpperCase()
+    const subactivoTo = form.subactivoTo.trim().toUpperCase()
     const parsedAmount = parseAmountInput(form.monto)
     const parsedQuantity = form.cantidad.trim() ? parseAmountInput(form.cantidad) : null
 
@@ -126,6 +135,11 @@ export const MovementsSection = ({
 
     if (!HOLDING_TYPES.includes(form.tipo)) {
       setError('Tipo inválido.')
+      return
+    }
+
+    if (form.mode === 'conversion' && !HOLDING_TYPES.includes(form.tipoTo)) {
+      setError('Tipo destino inválido.')
       return
     }
 
@@ -158,7 +172,7 @@ export const MovementsSection = ({
         return
       }
 
-      onCreateTransfer({
+      const result = onCreateTransfer({
         date: form.date,
         cuentaFrom: cuenta,
         cuentaTo,
@@ -170,6 +184,47 @@ export const MovementsSection = ({
         tags,
         note
       })
+
+      if (!result.ok) {
+        setError(result.error)
+        return
+      }
+
+      onCloseCreate()
+      return
+    }
+
+    if (form.mode === 'conversion') {
+      if (!cuentaTo) {
+        setError('La cuenta destino es obligatoria para conversiones.')
+        return
+      }
+
+      if (!subactivoTo) {
+        setError('El subactivo destino es obligatorio para conversiones.')
+        return
+      }
+
+      const result = onCreateConversion({
+        date: form.date,
+        cuentaFrom: cuenta,
+        cuentaTo,
+        moneda,
+        monto: parsedAmount,
+        cantidad: parsedQuantity,
+        tipoFrom: form.tipo,
+        subactivoFrom: subactivo,
+        tipoTo: form.tipoTo,
+        subactivoTo,
+        tags,
+        note
+      })
+
+      if (!result.ok) {
+        setError(result.error)
+        return
+      }
+
       onCloseCreate()
       return
     }
@@ -272,7 +327,8 @@ export const MovementsSection = ({
             }
             data={[
               { value: 'movement', label: 'Movimiento (entrada/salida)' },
-              { value: 'transfer', label: 'Transferencia entre cuentas' }
+              { value: 'transfer', label: 'Transferencia entre cuentas' },
+              { value: 'conversion', label: 'Conversión (genera salida + entrada)' }
             ]}
           />
 
@@ -306,7 +362,7 @@ export const MovementsSection = ({
 
           <TextInput
             id="movement-account"
-            label={form.mode === 'transfer' ? 'Cuenta origen' : 'Cuenta'}
+            label={form.mode === 'movement' ? 'Cuenta' : 'Cuenta origen'}
             list={accountListId}
             value={form.cuenta}
             onChange={(event) => setForm((previous) => ({ ...previous, cuenta: event.target.value }))}
@@ -318,7 +374,7 @@ export const MovementsSection = ({
             ))}
           </datalist>
 
-          {form.mode === 'transfer' ? (
+          {form.mode !== 'movement' ? (
             <>
               <TextInput
                 id="movement-account-destination"
@@ -412,6 +468,50 @@ export const MovementsSection = ({
                 onChange={(event) => setForm((previous) => ({ ...previous, subactivo: event.target.value }))}
                 required
               />
+              <datalist id={subassetListId}>
+                {subassetOptions.map((option) => (
+                  <option key={option} value={option} />
+                ))}
+              </datalist>
+            </>
+          )}
+
+          {form.mode === 'conversion' && (
+            <>
+              <NativeSelect
+                id="conversion-type-from"
+                label="Tipo origen"
+                value={form.tipo}
+                onChange={(event) => setForm((previous) => ({ ...previous, tipo: event.target.value as HoldingType }))}
+                data={HOLDING_TYPES.map((type) => ({ value: type, label: type }))}
+              />
+
+              <TextInput
+                id="conversion-subasset-from"
+                label="Subactivo origen"
+                list={subassetListId}
+                value={form.subactivo}
+                onChange={(event) => setForm((previous) => ({ ...previous, subactivo: event.target.value }))}
+                required
+              />
+
+              <NativeSelect
+                id="conversion-type-to"
+                label="Tipo destino"
+                value={form.tipoTo}
+                onChange={(event) => setForm((previous) => ({ ...previous, tipoTo: event.target.value as HoldingType }))}
+                data={HOLDING_TYPES.map((type) => ({ value: type, label: type }))}
+              />
+
+              <TextInput
+                id="conversion-subasset-to"
+                label="Subactivo destino"
+                list={subassetListId}
+                value={form.subactivoTo}
+                onChange={(event) => setForm((previous) => ({ ...previous, subactivoTo: event.target.value }))}
+                required
+              />
+
               <datalist id={subassetListId}>
                 {subassetOptions.map((option) => (
                   <option key={option} value={option} />

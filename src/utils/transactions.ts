@@ -81,6 +81,10 @@ const buildGroupingKey = (movement: HoldingMovement): string => {
   return `${movement.cuenta.toLowerCase()}::${movement.moneda.toUpperCase()}::${movement.tipo}::${movement.subactivo.toUpperCase()}`
 }
 
+const buildRowAssetKey = (row: HoldingRow): string => {
+  return `${row.moneda.trim().toUpperCase()}::${row.tipo}::${row.subactivo.trim().toUpperCase()}`
+}
+
 export const rebuildRowsFromMovements = (movements: HoldingMovement[]): HoldingRow[] => {
   const ordered = [...movements]
     .map(normalizeMovement)
@@ -153,6 +157,108 @@ export const movementKindToLabel = (kind: MovementKind): string => {
     default:
       return kind
   }
+}
+
+export interface TransferValidationInput {
+  cuentaFrom: string
+  cuentaTo: string
+  moneda: string
+  monto: number
+  cantidad: number | null
+  tipo: HoldingRow['tipo']
+  subactivo: string
+}
+
+interface AssetDebitValidationInput {
+  cuenta: string
+  moneda: string
+  monto: number
+  cantidad: number | null
+  tipo: HoldingRow['tipo']
+  subactivo: string
+}
+
+export const validateAssetDebitAgainstRows = (rows: HoldingRow[], draft: AssetDebitValidationInput): string | null => {
+  const cuenta = normalizeAccount(draft.cuenta).toLowerCase()
+  const moneda = normalizeCurrency(draft.moneda)
+  const subactivo = normalizeSubasset(draft.subactivo)
+
+  if (!cuenta) {
+    return 'La cuenta origen es obligatoria.'
+  }
+
+  const sourceRow = rows.find((row) => {
+    return (
+      normalizeAccount(row.cuenta).toLowerCase() === cuenta &&
+      normalizeCurrency(row.moneda) === moneda &&
+      row.tipo === draft.tipo &&
+      normalizeSubasset(row.subactivo) === subactivo
+    )
+  })
+
+  if (!sourceRow) {
+    return 'La cuenta origen no tiene ese asset para mover.'
+  }
+
+  if (draft.monto > sourceRow.monto + EPSILON) {
+    return 'Monto insuficiente en la cuenta origen para ese asset.'
+  }
+
+  if (draft.cantidad !== null) {
+    if (sourceRow.cantidad === null) {
+      return 'La cuenta origen no maneja cantidad para ese asset.'
+    }
+
+    if (draft.cantidad > sourceRow.cantidad + EPSILON) {
+      return 'Cantidad insuficiente en la cuenta origen para ese asset.'
+    }
+  }
+
+  return null
+}
+
+export const validateTransferAgainstRows = (rows: HoldingRow[], draft: TransferValidationInput): string | null => {
+  const cuentaFrom = normalizeAccount(draft.cuentaFrom).toLowerCase()
+  const cuentaTo = normalizeAccount(draft.cuentaTo).toLowerCase()
+  const moneda = normalizeCurrency(draft.moneda)
+  const subactivo = normalizeSubasset(draft.subactivo)
+  const targetAssetKey = `${moneda}::${draft.tipo}::${subactivo}`
+
+  if (!cuentaFrom || !cuentaTo) {
+    return 'Las cuentas origen y destino son obligatorias.'
+  }
+
+  if (cuentaFrom === cuentaTo) {
+    return 'La cuenta origen y destino deben ser distintas.'
+  }
+
+  const debitError = validateAssetDebitAgainstRows(rows, {
+    cuenta: draft.cuentaFrom,
+    moneda: draft.moneda,
+    monto: draft.monto,
+    cantidad: draft.cantidad,
+    tipo: draft.tipo,
+    subactivo: draft.subactivo
+  })
+  if (debitError) {
+    if (debitError === 'La cuenta origen no tiene ese asset para mover.') {
+      return 'La cuenta origen no tiene ese asset para transferir.'
+    }
+    return debitError
+  }
+
+  const destinationRows = rows.filter((row) => normalizeAccount(row.cuenta).toLowerCase() === cuentaTo)
+
+  if (destinationRows.length === 0) {
+    return null
+  }
+
+  const destinationHasSameAsset = destinationRows.some((row) => buildRowAssetKey(row) === targetAssetKey)
+  if (destinationHasSameAsset) {
+    return null
+  }
+
+  return 'La cuenta destino no tiene ese asset. Registrá una conversión antes de transferir entre assets distintos.'
 }
 
 export const isValidMovement = (value: unknown): value is HoldingMovement => {

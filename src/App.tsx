@@ -71,6 +71,7 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
     canRedo,
     addMovement,
     addTransferMovement,
+    addConversionMovement,
     deleteMovement,
     resetData,
     updateSettings,
@@ -421,8 +422,18 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
             pushToast('Movimiento guardado', 'success')
           }}
           onCreateTransfer={(draft) => {
-            addTransferMovement(draft)
-            pushToast('Transferencia guardada', 'success')
+            const result = addTransferMovement(draft)
+            if (result.ok) {
+              pushToast('Transferencia guardada', 'success')
+            }
+            return result
+          }}
+          onCreateConversion={(draft) => {
+            const result = addConversionMovement(draft)
+            if (result.ok) {
+              pushToast('Conversión guardada', 'success')
+            }
+            return result
           }}
           onDeleteMovement={(id) => {
             deleteMovement(id)
