@@ -165,8 +165,6 @@ export const MovementsSection = ({
         moneda,
         monto: parsedAmount,
         cantidad: parsedQuantity,
-        tipo: 'Cash',
-        subactivo: moneda,
         tags,
         note
       })

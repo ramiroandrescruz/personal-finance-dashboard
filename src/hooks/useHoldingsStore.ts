@@ -57,8 +57,8 @@ export interface TransferDraft {
   moneda: string
   monto: number
   cantidad: number | null
-  tipo: HoldingType
-  subactivo: string
+  tipo?: HoldingType
+  subactivo?: string
   tags: string[]
   note?: string
 }
@@ -368,6 +368,11 @@ export const useHoldingsStore = ({ userId, cloudSyncEnabled = false }: UseHoldin
       const transferOutId = generateId()
       const transferInId = generateId()
 
+      // Find the source row to use its tipo and subactivo
+      const sourceRow = state.rows.find(r => r.cuenta === draft.cuentaFrom && r.moneda === draft.moneda && r.monto > 0)
+      const tipo = draft.tipo || (sourceRow ? sourceRow.tipo : 'Cash')
+      const subactivo = draft.subactivo || (sourceRow ? sourceRow.subactivo : draft.moneda)
+
       dispatchWithHistory({
         type: 'ADD_MOVEMENTS',
         payload: [
@@ -379,8 +384,8 @@ export const useHoldingsStore = ({ userId, cloudSyncEnabled = false }: UseHoldin
             moneda: draft.moneda,
             monto: draft.monto,
             cantidad: draft.cantidad,
-            tipo: draft.tipo,
-            subactivo: draft.subactivo,
+            tipo,
+            subactivo,
             tags: normalizeTags(draft.tags),
             note: draft.note?.trim() ?? '',
             createdAt,
@@ -394,8 +399,8 @@ export const useHoldingsStore = ({ userId, cloudSyncEnabled = false }: UseHoldin
             moneda: draft.moneda,
             monto: draft.monto,
             cantidad: draft.cantidad,
-            tipo: draft.tipo,
-            subactivo: draft.subactivo,
+            tipo,
+            subactivo,
             tags: normalizeTags(draft.tags),
             note: draft.note?.trim() ?? '',
             createdAt,
@@ -404,7 +409,7 @@ export const useHoldingsStore = ({ userId, cloudSyncEnabled = false }: UseHoldin
         ]
       })
     },
-    [dispatchWithHistory]
+    [dispatchWithHistory, state.rows]
   )
 
   const deleteMovement = useCallback(
