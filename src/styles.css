@@ -170,6 +170,7 @@ body {
   text-align: center;
   line-height: 1.2;
   white-space: nowrap;
+  font-family: inherit;
   font-weight: 700;
   font-size: 0.87rem;
   cursor: pointer;
@@ -196,11 +197,6 @@ body {
   border-color: var(--line);
 }
 
-.btn,
-.btn:disabled {
-  -webkit-text-fill-color: currentColor;
-}
-
 .btn.is-disabled {
   opacity: 1;
   cursor: not-allowed;
@@ -209,7 +205,12 @@ body {
   color: var(--muted);
   background: var(--input-bg);
   border-color: var(--line);
-  -webkit-text-fill-color: currentColor;
+}
+
+.btn-label {
+  display: inline-block;
+  color: inherit;
+  font: inherit;
 }
 
 .btn-primary {

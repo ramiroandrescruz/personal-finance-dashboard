@@ -173,7 +173,7 @@ export const GlobalFiltersBar = ({
             className="btn btn-tertiary btn-preset"
             onClick={() => onFiltersChange(cloneFilters(preset.filters))}
           >
-            {preset.label}
+            <span className="btn-label">{preset.label}</span>
           </button>
         ))}
       </div>
@@ -200,7 +200,7 @@ export const GlobalFiltersBar = ({
             }
           }}
         >
-          Guardar vista
+          <span className="btn-label">Guardar vista</span>
         </button>
 
         <label className="saved-views-select" htmlFor="saved-view-select">
@@ -227,7 +227,7 @@ export const GlobalFiltersBar = ({
             onApplySavedView(selectedViewId)
           }}
         >
-          Aplicar vista
+          <span className="btn-label">Aplicar vista</span>
         </button>
 
         <button
@@ -243,7 +243,7 @@ export const GlobalFiltersBar = ({
             setSelectedViewId('')
           }}
         >
-          Eliminar vista
+          <span className="btn-label">Eliminar vista</span>
         </button>
       </div>
 
@@ -310,10 +310,10 @@ export const GlobalFiltersBar = ({
           aria-disabled={!hasActiveFilters}
           onClick={() => onFiltersChange(cloneFilters(DEFAULT_DASHBOARD_FILTERS))}
         >
-          Limpiar filtros
+          <span className="btn-label">Limpiar filtros</span>
         </button>
         <button type="button" className="btn btn-primary" onClick={onOpenAddMovement}>
-          + Agregar movimiento
+          <span className="btn-label">+ Agregar movimiento</span>
         </button>
       </div>
     </section>

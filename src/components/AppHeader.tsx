@@ -68,7 +68,7 @@ export const AppHeader = ({
           </span>
         ) : null}
         <button type="button" className="btn btn-secondary" onClick={onOpenSettings}>
-          Ajustes
+          <span className="btn-label">Ajustes</span>
         </button>
         <button
           type="button"
@@ -83,7 +83,7 @@ export const AppHeader = ({
           }}
           title="Ctrl/Cmd + Z"
         >
-          Deshacer
+          <span className="btn-label">Deshacer</span>
         </button>
         <button
           type="button"
@@ -98,17 +98,17 @@ export const AppHeader = ({
           }}
           title="Ctrl/Cmd + Shift + Z"
         >
-          Rehacer
+          <span className="btn-label">Rehacer</span>
         </button>
         <button type="button" className="btn btn-tertiary" onClick={onToggleTheme}>
-          Tema: {theme === 'dark' ? 'Oscuro' : 'Claro'}
+          <span className="btn-label">Tema: {theme === 'dark' ? 'Oscuro' : 'Claro'}</span>
         </button>
         <button type="button" className="btn btn-danger" onClick={onResetData}>
-          Resetear datos
+          <span className="btn-label">Resetear datos</span>
         </button>
         {onLogout ? (
           <button type="button" className="btn btn-tertiary" onClick={onLogout}>
-            Cerrar sesión
+            <span className="btn-label">Cerrar sesión</span>
           </button>
         ) : null}
       </div>
