@@ -1,4 +1,5 @@
 import { formatTime } from '../utils/number'
+import { AppButton } from './ui/AppButton'
 
 interface AppHeaderProps {
   lastSavedAt: number | null
@@ -67,12 +68,12 @@ export const AppHeader = ({
             {userEmail}
           </span>
         ) : null}
-        <button type="button" className="pf-btn pf-btn-secondary" onClick={onOpenSettings}>
-          <span className="pf-btn-label">Ajustes</span>
-        </button>
-        <button
-          type="button"
-          className={`pf-btn pf-btn-tertiary ${!canUndo ? 'is-disabled' : ''}`}
+        <AppButton tone="secondary" className="header-action-button" onClick={onOpenSettings}>
+          Ajustes
+        </AppButton>
+        <AppButton
+          tone="tertiary"
+          className="header-action-button"
           aria-disabled={!canUndo}
           onClick={() => {
             if (!canUndo) {
@@ -83,11 +84,11 @@ export const AppHeader = ({
           }}
           title="Ctrl/Cmd + Z"
         >
-          <span className="pf-btn-label">Deshacer</span>
-        </button>
-        <button
-          type="button"
-          className={`pf-btn pf-btn-tertiary ${!canRedo ? 'is-disabled' : ''}`}
+          Deshacer
+        </AppButton>
+        <AppButton
+          tone="tertiary"
+          className="header-action-button"
           aria-disabled={!canRedo}
           onClick={() => {
             if (!canRedo) {
@@ -98,18 +99,18 @@ export const AppHeader = ({
           }}
           title="Ctrl/Cmd + Shift + Z"
         >
-          <span className="pf-btn-label">Rehacer</span>
-        </button>
-        <button type="button" className="pf-btn pf-btn-tertiary" onClick={onToggleTheme}>
-          <span className="pf-btn-label">Tema: {theme === 'dark' ? 'Oscuro' : 'Claro'}</span>
-        </button>
-        <button type="button" className="pf-btn pf-btn-danger" onClick={onResetData}>
-          <span className="pf-btn-label">Resetear datos</span>
-        </button>
+          Rehacer
+        </AppButton>
+        <AppButton tone="tertiary" className="header-action-button" onClick={onToggleTheme}>
+          Tema: {theme === 'dark' ? 'Oscuro' : 'Claro'}
+        </AppButton>
+        <AppButton tone="danger" className="header-action-button" onClick={onResetData}>
+          Resetear datos
+        </AppButton>
         {onLogout ? (
-          <button type="button" className="pf-btn pf-btn-tertiary" onClick={onLogout}>
-            <span className="pf-btn-label">Cerrar sesión</span>
-          </button>
+          <AppButton tone="tertiary" className="header-action-button" onClick={onLogout}>
+            Cerrar sesión
+          </AppButton>
         ) : null}
       </div>
     </header>

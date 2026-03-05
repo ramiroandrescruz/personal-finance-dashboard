@@ -8,6 +8,7 @@ import {
   signOut
 } from 'firebase/auth'
 import { getFirebaseAuth, isFirebaseConfigured } from '../lib/firebase'
+import { AppButton } from './ui/AppButton'
 
 interface AuthGateProps {
   children: (auth: { email?: string; uid?: string; logout?: () => void; cloudSyncEnabled: boolean }) => ReactNode
@@ -183,9 +184,9 @@ export const AuthGate = ({ children }: AuthGateProps) => {
       <section className="auth-card" aria-live="polite">
         <h1>Ingresar al dashboard</h1>
         <p>Acceso restringido al email autorizado.</p>
-        <button type="button" className="pf-btn pf-btn-primary" onClick={handleSignIn} disabled={isSigningIn || status === 'loading'}>
+        <AppButton type="button" tone="primary" onClick={handleSignIn} disabled={isSigningIn || status === 'loading'}>
           {isSigningIn ? 'Abriendo Google...' : 'Ingresar con Google'}
-        </button>
+        </AppButton>
         {status === 'loading' ? <p className="muted-text">Inicializando autenticación...</p> : null}
         {errorMessage ? <p className="warning-banner">{errorMessage}</p> : null}
       </section>

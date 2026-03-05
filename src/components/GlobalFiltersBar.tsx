@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
+import { MultiSelect, Select, TextInput } from '@mantine/core'
 import { HOLDING_TYPES } from '../types'
 import type { DashboardFilters } from '../utils/filters'
 import { DEFAULT_DASHBOARD_FILTERS } from '../utils/filters'
 import { SUBASSET_CATEGORIES } from '../utils/subasset'
 import type { SavedDashboardView } from '../types'
+import { AppButton } from './ui/AppButton'
 
 interface GlobalFiltersBarProps {
   filters: DashboardFilters
@@ -18,67 +20,6 @@ interface GlobalFiltersBarProps {
   onSaveCurrentView: (name: string) => SavedDashboardView | null
   onApplySavedView: (id: string) => void
   onDeleteSavedView: (id: string) => void
-}
-
-const summarizeSelection = <T extends string>(selected: T[], allLabel: string): string => {
-  if (selected.length === 0) {
-    return allLabel
-  }
-
-  if (selected.length === 1) {
-    return selected[0] ?? allLabel
-  }
-
-  return `${selected.length} seleccionados`
-}
-
-const toggleSelection = <T extends string>(current: T[], value: T): T[] => {
-  if (current.includes(value)) {
-    return current.filter((item) => item !== value)
-  }
-
-  return [...current, value]
-}
-
-interface MultiSelectControlProps<T extends string> {
-  label: string
-  allLabel: string
-  options: T[]
-  selected: T[]
-  onChange: (next: T[]) => void
-}
-
-const MultiSelectControl = <T extends string>({
-  label,
-  allLabel,
-  options,
-  selected,
-  onChange
-}: MultiSelectControlProps<T>) => {
-  return (
-    <div className="multi-select">
-      <span className="filter-label">{label}</span>
-      <details className="multi-select-dropdown">
-        <summary>{summarizeSelection(selected, allLabel)}</summary>
-        <div className="multi-select-menu">
-          <button type="button" className="multi-select-clear" onClick={() => onChange([])}>
-            {allLabel}
-          </button>
-
-          {options.map((option) => {
-            const checked = selected.includes(option)
-
-            return (
-              <label key={option} className="multi-select-option">
-                <input type="checkbox" checked={checked} onChange={() => onChange(toggleSelection(selected, option))} />
-                <span>{option}</span>
-              </label>
-            )
-          })}
-        </div>
-      </details>
-    </div>
-  )
 }
 
 const cloneFilters = (filters: DashboardFilters): DashboardFilters => ({
@@ -117,6 +58,8 @@ const PRESET_FILTERS: Array<{ id: string; label: string; filters: DashboardFilte
     }
   }
 ]
+
+const toSelectData = (values: readonly string[]) => values.map((value) => ({ value, label: value }))
 
 export const GlobalFiltersBar = ({
   filters,
@@ -167,30 +110,27 @@ export const GlobalFiltersBar = ({
 
       <div className="filters-presets-row">
         {PRESET_FILTERS.map((preset) => (
-          <button
+          <AppButton
             key={preset.id}
-            type="button"
-            className="pf-btn pf-btn-tertiary pf-btn-preset"
+            tone="tertiary"
+            className="filters-preset-button"
             onClick={() => onFiltersChange(cloneFilters(preset.filters))}
           >
-            <span className="pf-btn-label">{preset.label}</span>
-          </button>
+            {preset.label}
+          </AppButton>
         ))}
       </div>
 
       <div className="saved-views-row">
-        <label className="saved-views-name" htmlFor="saved-view-name">
-          <span className="filter-label">Guardar vista actual</span>
-          <input
-            id="saved-view-name"
-            value={viewName}
-            onChange={(event) => setViewName(event.target.value)}
-            placeholder="Ej: Liquidez + crypto"
-          />
-        </label>
-        <button
-          type="button"
-          className="pf-btn pf-btn-tertiary"
+        <TextInput
+          label="Guardar vista actual"
+          value={viewName}
+          onChange={(event) => setViewName(event.currentTarget.value)}
+          placeholder="Ej: Liquidez + crypto"
+        />
+        <AppButton
+          tone="tertiary"
+          className="saved-view-action-button"
           onClick={() => {
             const saved = onSaveCurrentView(viewName)
 
@@ -200,25 +140,23 @@ export const GlobalFiltersBar = ({
             }
           }}
         >
-          <span className="pf-btn-label">Guardar vista</span>
-        </button>
+          Guardar vista
+        </AppButton>
 
-        <label className="saved-views-select" htmlFor="saved-view-select">
-          <span className="filter-label">Vistas guardadas</span>
-          <select id="saved-view-select" value={selectedViewId} onChange={(event) => setSelectedViewId(event.target.value)}>
-            <option value="">Seleccionar…</option>
-            {savedViews.map((view) => (
-              <option key={view.id} value={view.id}>
-                {view.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <Select
+          label="Vistas guardadas"
+          value={selectedViewId || null}
+          placeholder="Seleccionar..."
+          data={savedViews.map((view) => ({ value: view.id, label: view.name }))}
+          onChange={(value) => setSelectedViewId(value ?? '')}
+          searchable
+          clearable
+        />
 
-        <button
-          type="button"
-          className={`pf-btn pf-btn-tertiary ${!selectedViewId ? 'is-disabled' : ''}`}
-          aria-disabled={!selectedViewId}
+        <AppButton
+          tone="tertiary"
+          className="saved-view-action-button"
+          disabled={!selectedViewId}
           onClick={() => {
             if (!selectedViewId) {
               return
@@ -227,13 +165,13 @@ export const GlobalFiltersBar = ({
             onApplySavedView(selectedViewId)
           }}
         >
-          <span className="pf-btn-label">Aplicar vista</span>
-        </button>
+          Aplicar vista
+        </AppButton>
 
-        <button
-          type="button"
-          className={`pf-btn pf-btn-danger-outline ${!selectedViewId ? 'is-disabled' : ''}`}
-          aria-disabled={!selectedViewId}
+        <AppButton
+          tone="danger-outline"
+          className="saved-view-action-button"
+          disabled={!selectedViewId}
           onClick={() => {
             if (!selectedViewId) {
               return
@@ -243,60 +181,78 @@ export const GlobalFiltersBar = ({
             setSelectedViewId('')
           }}
         >
-          <span className="pf-btn-label">Eliminar vista</span>
-        </button>
+          Eliminar vista
+        </AppButton>
       </div>
 
       <div className="filters-grid">
-        <label className="filters-grid-wide" htmlFor="global-search">
-          <span className="filter-label">Búsqueda</span>
-          <input
-            id="global-search"
-            className="search-input"
-            placeholder="Buscar por Cuenta o Subactivo"
-            value={filters.searchTerm}
-            onChange={(event) => onFiltersChange({ ...filters, searchTerm: event.target.value })}
-          />
-        </label>
+        <TextInput
+          id="global-search"
+          label="Búsqueda"
+          className="filters-grid-wide"
+          placeholder="Buscar por Cuenta o Subactivo"
+          value={filters.searchTerm}
+          onChange={(event) => onFiltersChange({ ...filters, searchTerm: event.currentTarget.value })}
+        />
 
-        <MultiSelectControl
+        <MultiSelect
           label="Tipo"
-          allLabel="Todos"
-          options={[...HOLDING_TYPES]}
-          selected={filters.typeFilters}
-          onChange={(next) => onFiltersChange({ ...filters, typeFilters: next })}
+          data={toSelectData(HOLDING_TYPES)}
+          value={filters.typeFilters}
+          onChange={(values) => onFiltersChange({ ...filters, typeFilters: values as DashboardFilters['typeFilters'] })}
+          placeholder="Todos"
+          searchable
+          clearable
+          nothingFoundMessage="Sin resultados"
         />
 
-        <MultiSelectControl
+        <MultiSelect
           label="Moneda"
-          allLabel="Todas"
-          options={currencies}
-          selected={filters.currencyFilters}
-          onChange={(next) => onFiltersChange({ ...filters, currencyFilters: next })}
+          data={toSelectData(currencies)}
+          value={filters.currencyFilters}
+          onChange={(values) => onFiltersChange({ ...filters, currencyFilters: values })}
+          placeholder="Todas"
+          searchable
+          clearable
+          nothingFoundMessage="Sin resultados"
         />
 
-        <MultiSelectControl
+        <MultiSelect
           label="Tipo subactivo"
-          allLabel="Todos"
-          options={[...SUBASSET_CATEGORIES]}
-          selected={filters.subassetCategoryFilters}
-          onChange={(next) => onFiltersChange({ ...filters, subassetCategoryFilters: next })}
+          data={toSelectData(SUBASSET_CATEGORIES)}
+          value={filters.subassetCategoryFilters}
+          onChange={(values) =>
+            onFiltersChange({
+              ...filters,
+              subassetCategoryFilters: values as DashboardFilters['subassetCategoryFilters']
+            })
+          }
+          placeholder="Todos"
+          searchable
+          clearable
+          nothingFoundMessage="Sin resultados"
         />
 
-        <MultiSelectControl
+        <MultiSelect
           label="Subactivo"
-          allLabel="Todos"
-          options={subassets}
-          selected={filters.subassetFilters}
-          onChange={(next) => onFiltersChange({ ...filters, subassetFilters: next })}
+          data={toSelectData(subassets)}
+          value={filters.subassetFilters}
+          onChange={(values) => onFiltersChange({ ...filters, subassetFilters: values })}
+          placeholder="Todos"
+          searchable
+          clearable
+          nothingFoundMessage="Sin resultados"
         />
 
-        <MultiSelectControl
+        <MultiSelect
           label="Tags"
-          allLabel="Todas"
-          options={tags}
-          selected={filters.tagFilters}
-          onChange={(next) => onFiltersChange({ ...filters, tagFilters: next })}
+          data={toSelectData(tags)}
+          value={filters.tagFilters}
+          onChange={(values) => onFiltersChange({ ...filters, tagFilters: values })}
+          placeholder="Todos"
+          searchable
+          clearable
+          nothingFoundMessage="Sin resultados"
         />
       </div>
 
@@ -304,17 +260,16 @@ export const GlobalFiltersBar = ({
         <p className="muted-text">
           Filas filtradas: {filteredRowsCount}/{totalRowsCount}
         </p>
-        <button
-          type="button"
-          className={`pf-btn pf-btn-tertiary ${!hasActiveFilters ? 'is-disabled' : ''}`}
-          aria-disabled={!hasActiveFilters}
+        <AppButton
+          tone="tertiary"
+          disabled={!hasActiveFilters}
           onClick={() => onFiltersChange(cloneFilters(DEFAULT_DASHBOARD_FILTERS))}
         >
-          <span className="pf-btn-label">Limpiar filtros</span>
-        </button>
-        <button type="button" className="pf-btn pf-btn-primary" onClick={onOpenAddMovement}>
-          <span className="pf-btn-label">+ Agregar movimiento</span>
-        </button>
+          Limpiar filtros
+        </AppButton>
+        <AppButton tone="primary" onClick={onOpenAddMovement}>
+          + Agregar movimiento
+        </AppButton>
       </div>
     </section>
   )

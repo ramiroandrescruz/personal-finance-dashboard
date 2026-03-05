@@ -1,9 +1,11 @@
 import { type KeyboardEvent, useMemo, useState } from 'react'
+import { Modal, NativeSelect, TextInput } from '@mantine/core'
 import type { HoldingRow, HoldingType, Settings } from '../types'
 import { HOLDING_TYPES } from '../types'
 import { convertRowToUsd } from '../utils/conversion'
 import { formatPlainNumber, formatQuantity, formatUsd, parseAmountInput } from '../utils/number'
 import { formatTags, parseTagsInput } from '../utils/tags'
+import { AppButton } from './ui/AppButton'
 
 type EditableField = 'cuenta' | 'moneda' | 'monto' | 'cantidad' | 'tags' | 'tipo' | 'subactivo'
 type SortColumn = EditableField | 'usdOficial' | 'usdFinanciero'
@@ -398,12 +400,12 @@ export const HoldingsTable = ({
 
       <div className="table-bulk-toolbar">
         <p className="muted-text">Seleccionadas: {selectedCount}</p>
-        <button type="button" className="pf-btn pf-btn-tertiary" disabled={selectedCount === 0} onClick={openBulkEdit}>
+        <AppButton type="button" tone="tertiary" disabled={selectedCount === 0} onClick={openBulkEdit}>
           Editar seleccionadas
-        </button>
-        <button type="button" className="pf-btn pf-btn-tertiary" disabled={selectedCount === 0} onClick={() => setSelectedRowIds([])}>
+        </AppButton>
+        <AppButton type="button" tone="tertiary" disabled={selectedCount === 0} onClick={() => setSelectedRowIds([])}>
           Limpiar selección
-        </button>
+        </AppButton>
       </div>
 
       {error ? <p className="error-text">{error}</p> : null}
@@ -501,12 +503,13 @@ export const HoldingsTable = ({
                   <td>{renderEditableCell(row, 'subactivo')}</td>
                   <td>
                     <div className="row-actions">
-                      <button type="button" className="pf-btn pf-btn-tertiary" onClick={() => onDuplicateRow(row.id)}>
+                      <AppButton type="button" tone="tertiary" size="compact-sm" onClick={() => onDuplicateRow(row.id)}>
                         Duplicar
-                      </button>
-                      <button
+                      </AppButton>
+                      <AppButton
                         type="button"
-                        className="pf-btn pf-btn-danger-outline"
+                        tone="danger-outline"
+                        size="compact-sm"
                         onClick={() => {
                           if (window.confirm(`¿Eliminar la fila de ${row.cuenta}?`)) {
                             onDeleteRow(row.id)
@@ -514,7 +517,7 @@ export const HoldingsTable = ({
                         }}
                       >
                         Eliminar
-                      </button>
+                      </AppButton>
                     </div>
                   </td>
                 </tr>
@@ -532,77 +535,66 @@ export const HoldingsTable = ({
         </table>
       </div>
 
-      {isBulkEditOpen ? (
-        <div className="modal-backdrop" role="presentation">
-          <div className="modal" role="dialog" aria-modal="true" aria-label="Editar filas seleccionadas">
-            <h2>Editar {selectedCount} filas</h2>
-            <p className="modal-note">Solo se aplican los campos que completes.</p>
+      <Modal opened={isBulkEditOpen} onClose={() => setIsBulkEditOpen(false)} title={`Editar ${selectedCount} filas`} centered>
+        <p className="modal-note">Solo se aplican los campos que completes.</p>
 
-            <div className="form-grid">
-              <label htmlFor="bulk-cuenta">Cuenta</label>
-              <input
-                id="bulk-cuenta"
-                value={bulkDraft.cuenta}
-                onChange={(event) => setBulkDraft((previous) => ({ ...previous, cuenta: event.target.value }))}
-              />
+        <div className="form-grid">
+          <TextInput
+            id="bulk-cuenta"
+            label="Cuenta"
+            value={bulkDraft.cuenta}
+            onChange={(event) => setBulkDraft((previous) => ({ ...previous, cuenta: event.currentTarget.value }))}
+          />
 
-              <label htmlFor="bulk-moneda">Moneda</label>
-              <input
-                id="bulk-moneda"
-                value={bulkDraft.moneda}
-                onChange={(event) => setBulkDraft((previous) => ({ ...previous, moneda: event.target.value }))}
-              />
+          <TextInput
+            id="bulk-moneda"
+            label="Moneda"
+            value={bulkDraft.moneda}
+            onChange={(event) => setBulkDraft((previous) => ({ ...previous, moneda: event.currentTarget.value }))}
+          />
 
-              <label htmlFor="bulk-tipo">Tipo</label>
-              <select
-                id="bulk-tipo"
-                value={bulkDraft.tipo}
-                onChange={(event) => setBulkDraft((previous) => ({ ...previous, tipo: event.target.value as BulkDraft['tipo'] }))}
-              >
-                <option value="">Sin cambio</option>
-                {HOLDING_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
+          <NativeSelect
+            id="bulk-tipo"
+            label="Tipo"
+            value={bulkDraft.tipo}
+            onChange={(event) => setBulkDraft((previous) => ({ ...previous, tipo: event.currentTarget.value as BulkDraft['tipo'] }))}
+            data={[{ value: '', label: 'Sin cambio' }, ...HOLDING_TYPES.map((type) => ({ value: type, label: type }))]}
+          />
 
-              <label htmlFor="bulk-subactivo">Subactivo</label>
-              <input
-                id="bulk-subactivo"
-                value={bulkDraft.subactivo}
-                onChange={(event) => setBulkDraft((previous) => ({ ...previous, subactivo: event.target.value }))}
-              />
+          <TextInput
+            id="bulk-subactivo"
+            label="Subactivo"
+            value={bulkDraft.subactivo}
+            onChange={(event) => setBulkDraft((previous) => ({ ...previous, subactivo: event.currentTarget.value }))}
+          />
 
-              <label htmlFor="bulk-tags">Tags (coma)</label>
-              <input
-                id="bulk-tags"
-                value={bulkDraft.tags}
-                onChange={(event) => setBulkDraft((previous) => ({ ...previous, tags: event.target.value }))}
-                placeholder="largo plazo, liquidez"
-              />
-            </div>
-
-            {bulkError ? <p className="error-text">{bulkError}</p> : null}
-
-            <div className="modal-actions">
-              <button
-                type="button"
-                className="pf-btn pf-btn-tertiary"
-                onClick={() => {
-                  setIsBulkEditOpen(false)
-                  setBulkError(null)
-                }}
-              >
-                Cancelar
-              </button>
-              <button type="button" className="pf-btn pf-btn-primary" onClick={applyBulkEdit}>
-                Aplicar cambios
-              </button>
-            </div>
-          </div>
+          <TextInput
+            id="bulk-tags"
+            label="Tags (coma)"
+            value={bulkDraft.tags}
+            onChange={(event) => setBulkDraft((previous) => ({ ...previous, tags: event.currentTarget.value }))}
+            placeholder="largo plazo, liquidez"
+          />
         </div>
-      ) : null}
+
+        {bulkError ? <p className="error-text">{bulkError}</p> : null}
+
+        <div className="modal-actions">
+          <AppButton
+            type="button"
+            tone="tertiary"
+            onClick={() => {
+              setIsBulkEditOpen(false)
+              setBulkError(null)
+            }}
+          >
+            Cancelar
+          </AppButton>
+          <AppButton type="button" tone="primary" onClick={applyBulkEdit}>
+            Aplicar cambios
+          </AppButton>
+        </div>
+      </Modal>
     </section>
   )
 }

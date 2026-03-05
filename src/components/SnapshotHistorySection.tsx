@@ -3,6 +3,7 @@ import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, X
 import type { PortfolioSnapshot } from '../types'
 import { buildSnapshotVariations, getSnapshotDateKey } from '../utils/snapshots'
 import { formatPlainNumber, formatTime, formatUsd } from '../utils/number'
+import { AppButton } from './ui/AppButton'
 
 interface SnapshotHistorySectionProps {
   snapshots: PortfolioSnapshot[]
@@ -99,9 +100,9 @@ export const SnapshotHistorySection = ({ snapshots, onCaptureSnapshot }: Snapsho
           )}
         </div>
 
-        <button type="button" className="pf-btn pf-btn-primary" onClick={onCaptureSnapshot}>
+        <AppButton type="button" tone="primary" onClick={onCaptureSnapshot}>
           {hasTodaySnapshot ? 'Actualizar snapshot de hoy' : 'Guardar snapshot de hoy'}
-        </button>
+        </AppButton>
       </div>
 
       <div className="snapshot-variations-grid">

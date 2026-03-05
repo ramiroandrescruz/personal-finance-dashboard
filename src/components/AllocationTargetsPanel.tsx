@@ -3,6 +3,7 @@ import { HOLDING_TYPES } from '../types'
 import { buildDeviationRows, summarizeAlerts } from '../utils/allocation'
 import { clampTargetPercent } from '../utils/allocationTargets'
 import { formatUsd, formatPlainNumber } from '../utils/number'
+import { AppButton } from './ui/AppButton'
 
 interface DistributionPoint {
   name: string
@@ -80,9 +81,9 @@ export const AllocationTargetsPanel = ({
             />
           </div>
           {onClose ? (
-            <button type="button" className="pf-btn pf-btn-tertiary" onClick={onClose}>
+            <AppButton type="button" tone="tertiary" onClick={onClose}>
               Cerrar
-            </button>
+            </AppButton>
           ) : null}
         </div>
       </div>

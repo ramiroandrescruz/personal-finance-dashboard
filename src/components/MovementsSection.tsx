@@ -1,10 +1,12 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
+import { Modal, NativeSelect, TextInput } from '@mantine/core'
 import { HOLDING_TYPES } from '../types'
 import type { HoldingMovement, HoldingType } from '../types'
 import type { MovementDraft, TransferDraft } from '../hooks/useHoldingsStore'
 import { formatPlainNumber, formatQuantity, parseAmountInput } from '../utils/number'
 import { formatTags, parseTagsInput } from '../utils/tags'
 import { createMovementDraftDefaults, movementKindToLabel } from '../utils/transactions'
+import { AppButton } from './ui/AppButton'
 
 type ModalMode = 'movement' | 'transfer'
 
@@ -228,9 +230,10 @@ export const MovementsSection = ({
                 <td>{movement.tags.length === 0 ? '—' : formatTags(movement.tags)}</td>
                 <td>{movement.note || '—'}</td>
                 <td>
-                  <button
+                  <AppButton
                     type="button"
-                    className="pf-btn pf-btn-danger-outline"
+                    tone="danger-outline"
+                    size="compact-sm"
                     onClick={() => {
                       if (window.confirm('¿Eliminar este movimiento?')) {
                         onDeleteMovement(movement.id)
@@ -238,7 +241,7 @@ export const MovementsSection = ({
                     }}
                   >
                     Eliminar
-                  </button>
+                  </AppButton>
                 </td>
               </tr>
             ))}
@@ -253,178 +256,168 @@ export const MovementsSection = ({
         </table>
       </div>
 
-      {isCreateOpen ? (
-        <div className="modal-backdrop" role="presentation">
-          <div className="modal" role="dialog" aria-modal="true" aria-label="Agregar movimiento">
-            <h2>Agregar movimiento</h2>
-            <p className="modal-note">Para compras/ventas diarias podés agrupar en un solo movimiento resumen.</p>
+      <Modal opened={isCreateOpen} onClose={onCloseCreate} title="Agregar movimiento" centered>
+        <p className="modal-note">Para compras/ventas diarias podés agrupar en un solo movimiento resumen.</p>
 
-            <form className="form-grid" onSubmit={handleSubmit}>
-              <label htmlFor="movement-mode">Tipo de registro</label>
-              <select
-                id="movement-mode"
-                value={form.mode}
-                onChange={(event) =>
-                  setForm((previous) => ({
-                    ...previous,
-                    mode: event.target.value as ModalMode
-                  }))
-                }
-              >
-                <option value="movement">Movimiento (entrada/salida)</option>
-                <option value="transfer">Transferencia entre cuentas</option>
-              </select>
+        <form className="form-grid" onSubmit={handleSubmit}>
+          <NativeSelect
+            id="movement-mode"
+            label="Tipo de registro"
+            value={form.mode}
+            onChange={(event) =>
+              setForm((previous) => ({
+                ...previous,
+                mode: event.currentTarget.value as ModalMode
+              }))
+            }
+            data={[
+              { value: 'movement', label: 'Movimiento (entrada/salida)' },
+              { value: 'transfer', label: 'Transferencia entre cuentas' }
+            ]}
+          />
 
-              <label htmlFor="movement-date">Fecha</label>
-              <input
-                id="movement-date"
-                type="date"
-                value={form.date}
-                onChange={(event) => setForm((previous) => ({ ...previous, date: event.target.value }))}
+          <TextInput
+            id="movement-date"
+            label="Fecha"
+            type="date"
+            value={form.date}
+            onChange={(event) => setForm((previous) => ({ ...previous, date: event.currentTarget.value }))}
+            required
+          />
+
+          {form.mode === 'movement' ? (
+            <NativeSelect
+              id="movement-kind"
+              label="Dirección"
+              value={form.kind}
+              onChange={(event) =>
+                setForm((previous) => ({
+                  ...previous,
+                  kind: event.currentTarget.value as MovementFormState['kind']
+                }))
+              }
+              data={[
+                { value: 'IN', label: 'Entrada' },
+                { value: 'OUT', label: 'Salida' },
+                { value: 'OPENING', label: 'Apertura inicial' }
+              ]}
+            />
+          ) : null}
+
+          <TextInput
+            id="movement-account"
+            label={form.mode === 'transfer' ? 'Cuenta origen' : 'Cuenta'}
+            list={accountListId}
+            value={form.cuenta}
+            onChange={(event) => setForm((previous) => ({ ...previous, cuenta: event.currentTarget.value }))}
+            required
+          />
+          <datalist id={accountListId}>
+            {accountOptions.map((option) => (
+              <option key={option} value={option} />
+            ))}
+          </datalist>
+
+          {form.mode === 'transfer' ? (
+            <>
+              <TextInput
+                id="movement-account-destination"
+                label="Cuenta destino"
+                list={destinationAccountListId}
+                value={form.cuentaTo}
+                onChange={(event) => setForm((previous) => ({ ...previous, cuentaTo: event.currentTarget.value }))}
                 required
               />
-
-              {form.mode === 'movement' ? (
-                <>
-                  <label htmlFor="movement-kind">Dirección</label>
-                  <select
-                    id="movement-kind"
-                    value={form.kind}
-                    onChange={(event) =>
-                      setForm((previous) => ({
-                        ...previous,
-                        kind: event.target.value as MovementFormState['kind']
-                      }))
-                    }
-                  >
-                    <option value="IN">Entrada</option>
-                    <option value="OUT">Salida</option>
-                    <option value="OPENING">Apertura inicial</option>
-                  </select>
-                </>
-              ) : null}
-
-              <label htmlFor="movement-account">{form.mode === 'transfer' ? 'Cuenta origen' : 'Cuenta'}</label>
-              <input
-                id="movement-account"
-                list={accountListId}
-                value={form.cuenta}
-                onChange={(event) => setForm((previous) => ({ ...previous, cuenta: event.target.value }))}
-                required
-              />
-              <datalist id={accountListId}>
+              <datalist id={destinationAccountListId}>
                 {accountOptions.map((option) => (
                   <option key={option} value={option} />
                 ))}
               </datalist>
+            </>
+          ) : null}
 
-              {form.mode === 'transfer' ? (
-                <>
-                  <label htmlFor="movement-account-destination">Cuenta destino</label>
-                  <input
-                    id="movement-account-destination"
-                    list={destinationAccountListId}
-                    value={form.cuentaTo}
-                    onChange={(event) => setForm((previous) => ({ ...previous, cuentaTo: event.target.value }))}
-                    required
-                  />
-                  <datalist id={destinationAccountListId}>
-                    {accountOptions.map((option) => (
-                      <option key={option} value={option} />
-                    ))}
-                  </datalist>
-                </>
-              ) : null}
+          <TextInput
+            id="movement-currency"
+            label="Moneda"
+            list={currencyListId}
+            value={form.moneda}
+            onChange={(event) => setForm((previous) => ({ ...previous, moneda: event.currentTarget.value }))}
+            required
+          />
+          <datalist id={currencyListId}>
+            {currencyOptions.map((option) => (
+              <option key={option} value={option} />
+            ))}
+          </datalist>
 
-              <label htmlFor="movement-currency">Moneda</label>
-              <input
-                id="movement-currency"
-                list={currencyListId}
-                value={form.moneda}
-                onChange={(event) => setForm((previous) => ({ ...previous, moneda: event.target.value }))}
-                required
-              />
-              <datalist id={currencyListId}>
-                {currencyOptions.map((option) => (
-                  <option key={option} value={option} />
-                ))}
-              </datalist>
+          <TextInput
+            id="movement-amount"
+            label="Monto"
+            inputMode="decimal"
+            value={form.monto}
+            onChange={(event) => setForm((previous) => ({ ...previous, monto: event.currentTarget.value }))}
+            required
+          />
 
-              <label htmlFor="movement-amount">Monto</label>
-              <input
-                id="movement-amount"
-                inputMode="decimal"
-                value={form.monto}
-                onChange={(event) => setForm((previous) => ({ ...previous, monto: event.target.value }))}
-                required
-              />
+          <TextInput
+            id="movement-quantity"
+            label="Cantidad (opcional)"
+            inputMode="decimal"
+            value={form.cantidad}
+            onChange={(event) => setForm((previous) => ({ ...previous, cantidad: event.currentTarget.value }))}
+            placeholder="Ej: 0.52 BTC o 20 shares"
+          />
 
-              <label htmlFor="movement-quantity">Cantidad (opcional)</label>
-              <input
-                id="movement-quantity"
-                inputMode="decimal"
-                value={form.cantidad}
-                onChange={(event) => setForm((previous) => ({ ...previous, cantidad: event.target.value }))}
-                placeholder="Ej: 0.52 BTC o 20 shares"
-              />
+          <NativeSelect
+            id="movement-type"
+            label="Tipo"
+            value={form.tipo}
+            onChange={(event) => setForm((previous) => ({ ...previous, tipo: event.currentTarget.value as HoldingType }))}
+            data={HOLDING_TYPES.map((type) => ({ value: type, label: type }))}
+          />
 
-              <label htmlFor="movement-type">Tipo</label>
-              <select
-                id="movement-type"
-                value={form.tipo}
-                onChange={(event) => setForm((previous) => ({ ...previous, tipo: event.target.value as HoldingType }))}
-              >
-                {HOLDING_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
+          <TextInput
+            id="movement-subasset"
+            label="Subactivo"
+            list={subassetListId}
+            value={form.subactivo}
+            onChange={(event) => setForm((previous) => ({ ...previous, subactivo: event.currentTarget.value }))}
+            required
+          />
+          <datalist id={subassetListId}>
+            {subassetOptions.map((option) => (
+              <option key={option} value={option} />
+            ))}
+          </datalist>
 
-              <label htmlFor="movement-subasset">Subactivo</label>
-              <input
-                id="movement-subasset"
-                list={subassetListId}
-                value={form.subactivo}
-                onChange={(event) => setForm((previous) => ({ ...previous, subactivo: event.target.value }))}
-                required
-              />
-              <datalist id={subassetListId}>
-                {subassetOptions.map((option) => (
-                  <option key={option} value={option} />
-                ))}
-              </datalist>
+          <TextInput
+            id="movement-tags"
+            label="Tags (coma)"
+            value={form.tags}
+            onChange={(event) => setForm((previous) => ({ ...previous, tags: event.currentTarget.value }))}
+            placeholder="largo plazo, liquidez"
+          />
 
-              <label htmlFor="movement-tags">Tags (coma)</label>
-              <input
-                id="movement-tags"
-                value={form.tags}
-                onChange={(event) => setForm((previous) => ({ ...previous, tags: event.target.value }))}
-                placeholder="largo plazo, liquidez"
-              />
+          <TextInput
+            id="movement-note"
+            label="Nota"
+            value={form.note}
+            onChange={(event) => setForm((previous) => ({ ...previous, note: event.currentTarget.value }))}
+            placeholder="Compra del mes, rebalanceo, etc."
+          />
 
-              <label htmlFor="movement-note">Nota</label>
-              <input
-                id="movement-note"
-                value={form.note}
-                onChange={(event) => setForm((previous) => ({ ...previous, note: event.target.value }))}
-                placeholder="Compra del mes, rebalanceo, etc."
-              />
+          {error ? <p className="error-text">{error}</p> : null}
 
-              {error ? <p className="error-text">{error}</p> : null}
-
-              <div className="modal-actions">
-                <button type="button" className="pf-btn pf-btn-tertiary" onClick={onCloseCreate}>
-                  Cancelar
-                </button>
-                <button type="submit" className="pf-btn pf-btn-primary">
-                  Guardar movimiento
-                </button>
-              </div>
-            </form>
+          <div className="modal-actions">
+            <AppButton type="button" tone="tertiary" onClick={onCloseCreate}>
+              Cancelar
+            </AppButton>
+            <AppButton type="submit" tone="primary">
+              Guardar movimiento
+            </AppButton>
           </div>
-        </div>
-      ) : null}
+        </form>
+      </Modal>
     </section>
   )
 }

@@ -1,6 +1,8 @@
 import { type FormEvent, useEffect, useState } from 'react'
+import { Modal, TextInput } from '@mantine/core'
 import type { Settings } from '../types'
 import { parseAmountInput } from '../utils/number'
+import { AppButton } from './ui/AppButton'
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -48,43 +50,39 @@ export const SettingsModal = ({ isOpen, settings, onClose, onSave }: SettingsMod
   }
 
   return (
-    <div className="modal-backdrop" role="presentation">
-      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
-        <h2 id="settings-title">Ajustes</h2>
+    <Modal opened={isOpen} onClose={onClose} title="Ajustes" centered>
+      <form onSubmit={handleSubmit} className="form-grid">
+        <TextInput
+          id="ars-oficial"
+          label="ARS/USD Oficial"
+          value={arsUsdOficial}
+          onChange={(event) => setArsUsdOficial(event.currentTarget.value)}
+          inputMode="decimal"
+          required
+        />
 
-        <form onSubmit={handleSubmit} className="form-grid">
-          <label htmlFor="ars-oficial">ARS/USD Oficial</label>
-          <input
-            id="ars-oficial"
-            value={arsUsdOficial}
-            onChange={(event) => setArsUsdOficial(event.target.value)}
-            inputMode="decimal"
-            required
-          />
+        <TextInput
+          id="ars-financiero"
+          label="ARS/USD Financiero"
+          value={arsUsdFinanciero}
+          onChange={(event) => setArsUsdFinanciero(event.currentTarget.value)}
+          inputMode="decimal"
+          required
+        />
 
-          <label htmlFor="ars-financiero">ARS/USD Financiero</label>
-          <input
-            id="ars-financiero"
-            value={arsUsdFinanciero}
-            onChange={(event) => setArsUsdFinanciero(event.target.value)}
-            inputMode="decimal"
-            required
-          />
+        <p className="modal-note">Se recalculan los USD automáticamente.</p>
 
-          <p className="modal-note">Se recalculan los USD automáticamente.</p>
+        {error ? <p className="error-text">{error}</p> : null}
 
-          {error ? <p className="error-text">{error}</p> : null}
-
-          <div className="modal-actions">
-            <button type="button" className="pf-btn pf-btn-tertiary" onClick={onClose}>
-              Cancelar
-            </button>
-            <button type="submit" className="pf-btn pf-btn-primary">
-              Guardar
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className="modal-actions">
+          <AppButton type="button" tone="tertiary" onClick={onClose}>
+            Cancelar
+          </AppButton>
+          <AppButton type="submit" tone="primary">
+            Guardar
+          </AppButton>
+        </div>
+      </form>
+    </Modal>
   )
 }

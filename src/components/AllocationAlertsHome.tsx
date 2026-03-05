@@ -1,5 +1,6 @@
 import type { AllocationDeviationRow } from '../utils/allocation'
 import { formatPlainNumber, formatUsd } from '../utils/number'
+import { AppButton } from './ui/AppButton'
 
 interface AllocationAlertsHomeProps {
   thresholdPct: number
@@ -18,9 +19,9 @@ export const AllocationAlertsHome = ({ thresholdPct, alerts, onOpenConfig }: All
           <p className="muted-text">Mostrando desvíos mayores a {formatPlainNumber(thresholdPct)}%</p>
         </div>
 
-        <button type="button" className="pf-btn pf-btn-secondary" onClick={onOpenConfig}>
+        <AppButton type="button" tone="secondary" onClick={onOpenConfig}>
           Configurar objetivos
-        </button>
+        </AppButton>
       </div>
 
       {alerts.length === 0 ? (

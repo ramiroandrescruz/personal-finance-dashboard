@@ -3,6 +3,7 @@ import { HOLDING_TYPES } from '../types'
 import type { HoldingRow, HoldingType } from '../types'
 import { parseAmountInput } from '../utils/number'
 import { parseTagsInput } from '../utils/tags'
+import { AppButton } from './ui/AppButton'
 
 interface AddRowModalProps {
   isOpen: boolean
@@ -252,12 +253,12 @@ export const AddRowModal = ({
           {error ? <p className="error-text">{error}</p> : null}
 
           <div className="modal-actions">
-            <button type="button" className="pf-btn pf-btn-tertiary" onClick={onClose}>
+            <AppButton type="button" tone="tertiary" onClick={onClose}>
               Cancelar
-            </button>
-            <button type="submit" className="pf-btn pf-btn-primary">
+            </AppButton>
+            <AppButton type="submit" tone="primary">
               Guardar
-            </button>
+            </AppButton>
           </div>
         </form>
       </div>

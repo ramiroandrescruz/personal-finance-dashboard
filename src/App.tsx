@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Modal } from '@mantine/core'
 import { AllocationAlertsHome } from './components/AllocationAlertsHome'
 import { AllocationTargetsPanel } from './components/AllocationTargetsPanel'
 import { AppHeader } from './components/AppHeader'
@@ -441,22 +442,24 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
         }}
       />
 
-      {isTargetsOpen ? (
-        <div className="modal-backdrop" role="presentation">
-          <div className="allocation-modal-shell" role="dialog" aria-modal="true" aria-label="Configurar objetivos de asignación">
-            <AllocationTargetsPanel
-              byType={chartsData.byType}
-              bySubasset={chartsData.bySubasset}
-              targets={targets}
-              onTargetsChange={(nextTargets) => {
-                updateTargets(nextTargets)
-                pushToast('Objetivos actualizados', 'success')
-              }}
-              onClose={() => setIsTargetsOpen(false)}
-            />
-          </div>
-        </div>
-      ) : null}
+      <Modal
+        opened={isTargetsOpen}
+        onClose={() => setIsTargetsOpen(false)}
+        title="Configurar objetivos de asignación"
+        centered
+        size="xl"
+      >
+        <AllocationTargetsPanel
+          byType={chartsData.byType}
+          bySubasset={chartsData.bySubasset}
+          targets={targets}
+          onTargetsChange={(nextTargets) => {
+            updateTargets(nextTargets)
+            pushToast('Objetivos actualizados', 'success')
+          }}
+          onClose={() => setIsTargetsOpen(false)}
+        />
+      </Modal>
 
       <ToastStack toasts={toasts} />
     </div>
