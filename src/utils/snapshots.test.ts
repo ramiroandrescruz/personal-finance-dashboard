@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { buildSnapshotVariations, upsertSnapshot, type SnapshotVariations } from './snapshots'
-import type { PortfolioSnapshot } from '../types'
+import { buildSnapshotVariations, rebuildSnapshotsFromMovements, upsertSnapshot, type SnapshotVariations } from './snapshots'
+import type { HoldingMovement, PortfolioSnapshot } from '../types'
 
 const makeSnapshot = (date: string, financiero: number, oficial: number): PortfolioSnapshot => ({
   date,
@@ -44,5 +44,52 @@ describe('buildSnapshotVariations', () => {
     expect(variations.daily).toBeNull()
     expect(variations.weekly).toBeNull()
     expect(variations.monthly).toBeNull()
+  })
+})
+
+describe('rebuildSnapshotsFromMovements', () => {
+  it('recalcula snapshots históricos usando movimientos hasta cada fecha', () => {
+    const snapshots = [makeSnapshot('2026-01-01', 0, 0), makeSnapshot('2026-02-01', 0, 0), makeSnapshot('2026-03-01', 0, 0)]
+    const movements: HoldingMovement[] = [
+      {
+        id: 'm1',
+        date: '2025-12-15',
+        kind: 'OPENING',
+        cuenta: 'Inmuebles',
+        moneda: 'USD',
+        monto: 100000,
+        cantidad: null,
+        tipo: 'Properties',
+        subactivo: 'DEPTO',
+        liquidity: 'ILLIQUID',
+        tags: [],
+        note: '',
+        createdAt: 1
+      },
+      {
+        id: 'm2',
+        date: '2026-02-10',
+        kind: 'REVALUATION',
+        cuenta: 'Inmuebles',
+        moneda: 'USD',
+        monto: 5000,
+        cantidad: null,
+        tipo: 'Properties',
+        subactivo: 'DEPTO',
+        liquidity: 'ILLIQUID',
+        tags: [],
+        note: '',
+        createdAt: 2,
+        valuationDate: '2026-02-10',
+        valuationCurrency: 'USD',
+        valuationSource: 'Tasación'
+      }
+    ]
+
+    const rebuilt = rebuildSnapshotsFromMovements(snapshots, movements)
+
+    expect(rebuilt[0]?.totalUsdFinanciero).toBe(100000)
+    expect(rebuilt[1]?.totalUsdFinanciero).toBe(100000)
+    expect(rebuilt[2]?.totalUsdFinanciero).toBe(105000)
   })
 })

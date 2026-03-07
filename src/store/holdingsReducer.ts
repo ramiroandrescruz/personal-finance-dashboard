@@ -24,6 +24,7 @@ export type HoldingsAction =
     }
   | { type: 'ADD_MOVEMENT'; payload: HoldingMovement }
   | { type: 'ADD_MOVEMENTS'; payload: HoldingMovement[] }
+  | { type: 'UPDATE_MOVEMENT'; payload: { id: string; patch: Partial<Omit<HoldingMovement, 'id'>> } }
   | { type: 'DELETE_MOVEMENT'; payload: { id: string } }
   | { type: 'ADD_ROW'; payload: HoldingRow }
   | { type: 'DUPLICATE_ROW'; payload: HoldingRow }
@@ -76,6 +77,35 @@ export const holdingsReducer = (state: HoldingsState, action: HoldingsAction): H
       }
 
       const nextTransactions = [...state.transactions, ...action.payload.map(normalizeMovement)]
+
+      return withEditTimestamp({
+        rows: rebuildRowsFromMovements(nextTransactions),
+        transactions: nextTransactions,
+        settings: state.settings,
+        targets: state.targets,
+        snapshots: state.snapshots,
+        savedViews: state.savedViews
+      })
+    }
+
+    case 'UPDATE_MOVEMENT': {
+      let hasChanges = false
+
+      const nextTransactions = state.transactions.map((movement) => {
+        if (movement.id !== action.payload.id) {
+          return movement
+        }
+
+        hasChanges = true
+        return normalizeMovement({
+          ...movement,
+          ...action.payload.patch
+        })
+      })
+
+      if (!hasChanges) {
+        return state
+      }
 
       return withEditTimestamp({
         rows: rebuildRowsFromMovements(nextTransactions),

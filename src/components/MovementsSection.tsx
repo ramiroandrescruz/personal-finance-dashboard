@@ -21,6 +21,7 @@ interface MovementsSectionProps {
   onCreateMovement: (draft: MovementDraft) => void
   onCreateTransfer: (draft: TransferDraft) => TransferCreateResult
   onCreateConversion: (draft: ConversionDraft) => TransferCreateResult
+  onUpdateMovement: (id: string, patch: Partial<Omit<HoldingMovement, 'id'>>) => void
   onDeleteMovement: (id: string) => void
   canUndo: boolean
   canRedo: boolean
@@ -85,6 +86,7 @@ export const MovementsSection = ({
   onCreateMovement,
   onCreateTransfer,
   onCreateConversion,
+  onUpdateMovement,
   onDeleteMovement,
   canUndo,
   canRedo,
@@ -377,6 +379,15 @@ export const MovementsSection = ({
                       </ActionIcon>
                     </Menu.Target>
                     <Menu.Dropdown>
+                      <Menu.Item
+                        onClick={() => {
+                          onUpdateMovement(movement.id, {
+                            liquidity: movement.liquidity === 'ILLIQUID' ? 'LIQUID' : 'ILLIQUID'
+                          })
+                        }}
+                      >
+                        {movement.liquidity === 'ILLIQUID' ? 'Marcar como líquido' : 'Marcar como ilíquido'}
+                      </Menu.Item>
                       <Menu.Item
                         color="red"
                         onClick={() => {

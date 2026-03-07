@@ -518,6 +518,13 @@ export const useHoldingsStore = ({ userId, cloudSyncEnabled = false }: UseHoldin
     [dispatchWithHistory]
   )
 
+  const updateMovement = useCallback(
+    (id: string, patch: Partial<Omit<HoldingMovement, 'id'>>) => {
+      dispatchWithHistory({ type: 'UPDATE_MOVEMENT', payload: { id, patch } })
+    },
+    [dispatchWithHistory]
+  )
+
   const resetData = useCallback(() => {
     dispatchWithHistory({
       type: 'RESET_DATA',
@@ -660,6 +667,7 @@ export const useHoldingsStore = ({ userId, cloudSyncEnabled = false }: UseHoldin
     addMovement,
     addTransferMovement,
     addConversionMovement,
+    updateMovement,
     deleteMovement,
     resetData,
     updateSettings,

@@ -136,6 +136,40 @@ describe('holdingsReducer', () => {
     expect(state.rows[0]?.cantidad).toBe(0.05)
   })
 
+  it('actualiza movimiento y refleja cambios en liquidez', () => {
+    const withMovement = holdingsReducer(initialState, {
+      type: 'ADD_MOVEMENT',
+      payload: {
+        id: 'tx-liq',
+        date: '2026-03-05',
+        kind: 'IN',
+        cuenta: 'Inmuebles',
+        moneda: 'USD',
+        monto: 50000,
+        cantidad: null,
+        tipo: 'Properties',
+        subactivo: 'CASA',
+        liquidity: 'ILLIQUID',
+        tags: [],
+        note: '',
+        createdAt: 2
+      }
+    })
+
+    const updated = holdingsReducer(withMovement, {
+      type: 'UPDATE_MOVEMENT',
+      payload: {
+        id: 'tx-liq',
+        patch: {
+          liquidity: 'LIQUID'
+        }
+      }
+    })
+
+    expect(updated.transactions[0]?.liquidity).toBe('LIQUID')
+    expect(updated.rows[0]?.liquidity).toBe('LIQUID')
+  })
+
   it('edita filas existentes', () => {
     const state = holdingsReducer(initialState, {
       type: 'UPDATE_ROW',

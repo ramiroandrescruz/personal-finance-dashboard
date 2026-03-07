@@ -1,4 +1,6 @@
-import type { PortfolioSnapshot } from '../types'
+import type { HoldingMovement, PortfolioSnapshot } from '../types'
+import { convertRowToUsd } from './conversion'
+import { rebuildRowsFromMovements } from './transactions'
 
 export const SNAPSHOT_TIMEZONE = 'America/Argentina/Buenos_Aires'
 
@@ -129,4 +131,39 @@ export const buildSnapshotVariations = (snapshots: PortfolioSnapshot[]): Snapsho
     weekly: calculatePeriodVariation(sorted, current, 7),
     monthly: calculatePeriodVariation(sorted, current, 30)
   }
+}
+
+export const rebuildSnapshotsFromMovements = (
+  snapshots: PortfolioSnapshot[],
+  movements: HoldingMovement[]
+): PortfolioSnapshot[] => {
+  if (snapshots.length === 0) {
+    return []
+  }
+
+  const sortedSnapshots = sortByDate(snapshots)
+
+  return sortedSnapshots.map((snapshot) => {
+    const rowsAtSnapshotDate = rebuildRowsFromMovements(movements.filter((movement) => movement.date <= snapshot.date))
+
+    const totals = rowsAtSnapshotDate.reduce(
+      (accumulator, row) => {
+        const conversion = convertRowToUsd(row, {
+          arsUsdOficial: snapshot.arsUsdOficial,
+          arsUsdFinanciero: snapshot.arsUsdFinanciero
+        })
+
+        accumulator.usdOficial += conversion.usdOficial
+        accumulator.usdFinanciero += conversion.usdFinanciero
+        return accumulator
+      },
+      { usdOficial: 0, usdFinanciero: 0 }
+    )
+
+    return {
+      ...snapshot,
+      totalUsdOficial: totals.usdOficial,
+      totalUsdFinanciero: totals.usdFinanciero
+    }
+  })
 }

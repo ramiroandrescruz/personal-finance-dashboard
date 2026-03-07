@@ -18,7 +18,7 @@ import { buildDeviationRows } from './utils/allocation'
 import { clampTargetPercent } from './utils/allocationTargets'
 import { aggregateTotals, convertRowToUsd } from './utils/conversion'
 import { applyDashboardFilters, DEFAULT_DASHBOARD_FILTERS, type DashboardFilters } from './utils/filters'
-import { getSnapshotDateKey } from './utils/snapshots'
+import { getSnapshotDateKey, rebuildSnapshotsFromMovements } from './utils/snapshots'
 
 const EMPTY_TOTALS_BY_TYPE: Record<HoldingType, number> = {
   Cash: 0,
@@ -73,6 +73,7 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
     addMovement,
     addTransferMovement,
     addConversionMovement,
+    updateMovement,
     deleteMovement,
     resetData,
     updateSettings,
@@ -268,6 +269,10 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
     )
   }, [rows, settings])
 
+  const snapshotsForAnalytics = useMemo(() => {
+    return rebuildSnapshotsFromMovements(snapshots, transactions)
+  }, [snapshots, transactions])
+
   const liquidityTotals = useMemo(() => {
     return rows.reduce(
       (accumulator, row) => {
@@ -396,7 +401,7 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
         ) : null}
 
         <SnapshotHistorySection
-          snapshots={snapshots}
+          snapshots={snapshotsForAnalytics}
           totalUsdFinanciero={portfolioTotals.usdFinanciero}
           totalUsdOficial={portfolioTotals.usdOficial}
           liquidUsdFinanciero={liquidityTotals.liquidUsdFinanciero}
@@ -449,6 +454,10 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
               pushToast('Conversión guardada', 'success')
             }
             return result
+          }}
+          onUpdateMovement={(id, patch) => {
+            updateMovement(id, patch)
+            pushToast('Movimiento actualizado', 'success')
           }}
           onDeleteMovement={(id) => {
             deleteMovement(id)
