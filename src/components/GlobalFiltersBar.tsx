@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { MultiSelect, Select, TextInput } from '@mantine/core'
+import { Collapse, MultiSelect, Select, TextInput } from '@mantine/core'
 import { HOLDING_TYPES } from '../types'
+import type { SavedDashboardView } from '../types'
 import type { DashboardFilters } from '../utils/filters'
 import { DEFAULT_DASHBOARD_FILTERS } from '../utils/filters'
 import { SUBASSET_CATEGORIES } from '../utils/subasset'
-import type { SavedDashboardView } from '../types'
 import { AppButton } from './ui/AppButton'
 
 interface GlobalFiltersBarProps {
@@ -16,7 +16,6 @@ interface GlobalFiltersBarProps {
   filteredRowsCount: number
   totalRowsCount: number
   onFiltersChange: (filters: DashboardFilters) => void
-  onOpenAddMovement: () => void
   onSaveCurrentView: (name: string) => SavedDashboardView | null
   onApplySavedView: (id: string) => void
   onDeleteSavedView: (id: string) => void
@@ -70,13 +69,13 @@ export const GlobalFiltersBar = ({
   filteredRowsCount,
   totalRowsCount,
   onFiltersChange,
-  onOpenAddMovement,
   onSaveCurrentView,
   onApplySavedView,
   onDeleteSavedView
 }: GlobalFiltersBarProps) => {
   const [viewName, setViewName] = useState('')
   const [selectedViewId, setSelectedViewId] = useState('')
+  const [showAdvanced, setShowAdvanced] = useState(false)
 
   useEffect(() => {
     if (!selectedViewId) {
@@ -99,13 +98,126 @@ export const GlobalFiltersBar = ({
     )
   }, [filters])
 
+  const activeFilterChips = useMemo(() => {
+    const chips: Array<{ id: string; label: string; onRemove: () => void }> = []
+
+    if (filters.searchTerm.trim()) {
+      chips.push({
+        id: 'search',
+        label: `Buscar: ${filters.searchTerm.trim()}`,
+        onRemove: () => onFiltersChange({ ...filters, searchTerm: '' })
+      })
+    }
+
+    filters.typeFilters.forEach((type) => {
+      chips.push({
+        id: `type-${type}`,
+        label: `Tipo: ${type}`,
+        onRemove: () => onFiltersChange({ ...filters, typeFilters: filters.typeFilters.filter((item) => item !== type) })
+      })
+    })
+
+    filters.currencyFilters.forEach((currency) => {
+      chips.push({
+        id: `currency-${currency}`,
+        label: `Moneda: ${currency}`,
+        onRemove: () => onFiltersChange({ ...filters, currencyFilters: filters.currencyFilters.filter((item) => item !== currency) })
+      })
+    })
+
+    filters.tagFilters.forEach((tag) => {
+      chips.push({
+        id: `tag-${tag}`,
+        label: `Tag: ${tag}`,
+        onRemove: () => onFiltersChange({ ...filters, tagFilters: filters.tagFilters.filter((item) => item !== tag) })
+      })
+    })
+
+    filters.subassetCategoryFilters.forEach((category) => {
+      chips.push({
+        id: `subasset-category-${category}`,
+        label: `Categoría: ${category}`,
+        onRemove: () =>
+          onFiltersChange({
+            ...filters,
+            subassetCategoryFilters: filters.subassetCategoryFilters.filter((item) => item !== category) as DashboardFilters['subassetCategoryFilters']
+          })
+      })
+    })
+
+    filters.subassetFilters.forEach((subasset) => {
+      chips.push({
+        id: `subasset-${subasset}`,
+        label: `Subactivo: ${subasset}`,
+        onRemove: () => onFiltersChange({ ...filters, subassetFilters: filters.subassetFilters.filter((item) => item !== subasset) })
+      })
+    })
+
+    return chips
+  }, [filters, onFiltersChange])
+
   return (
-    <section className="filters-panel" aria-label="Filtros globales">
-      <div className="filters-header">
+    <section className="filters-panel filters-panel-compact" aria-label="Filtros globales">
+      <div className="filters-header filters-header-compact">
         <div>
-          <h2>Filtros Globales</h2>
-          <p className="muted-text">Aplican a resumen, gráficos y tabla</p>
+          <h2>Filtros</h2>
+          <p className="muted-text">
+            {filteredRowsCount}/{totalRowsCount} posiciones visibles
+          </p>
         </div>
+
+        <div className="filters-header-actions">
+          <AppButton tone="tertiary" onClick={() => setShowAdvanced((previous) => !previous)}>
+            {showAdvanced ? 'Ocultar avanzados' : 'Más filtros'}
+          </AppButton>
+          <AppButton
+            tone="tertiary"
+            disabled={!hasActiveFilters}
+            onClick={() => onFiltersChange(cloneFilters(DEFAULT_DASHBOARD_FILTERS))}
+          >
+            Limpiar
+          </AppButton>
+        </div>
+      </div>
+
+      <div className="filters-primary-row">
+        <TextInput
+          id="global-search"
+          className="filters-search"
+          placeholder="Buscar por cuenta o subactivo"
+          value={filters.searchTerm}
+          onChange={(event) => onFiltersChange({ ...filters, searchTerm: event.target.value })}
+        />
+
+        <MultiSelect
+          data={toSelectData(HOLDING_TYPES)}
+          value={filters.typeFilters}
+          onChange={(values) => onFiltersChange({ ...filters, typeFilters: values as DashboardFilters['typeFilters'] })}
+          placeholder="Tipo"
+          searchable
+          clearable
+          nothingFoundMessage="Sin resultados"
+        />
+
+        <MultiSelect
+          data={toSelectData(currencies)}
+          value={filters.currencyFilters}
+          onChange={(values) => onFiltersChange({ ...filters, currencyFilters: values })}
+          placeholder="Moneda"
+          searchable
+          clearable
+          nothingFoundMessage="Sin resultados"
+        />
+
+        <MultiSelect
+          data={toSelectData(tags)}
+          value={filters.tagFilters}
+          onChange={(values) => onFiltersChange({ ...filters, tagFilters: values })}
+          placeholder="Tags"
+          searchable
+          clearable
+          nothingFoundMessage="Sin resultados"
+        />
       </div>
 
       <div className="filters-presets-row">
@@ -121,12 +233,42 @@ export const GlobalFiltersBar = ({
         ))}
       </div>
 
-      <div className="saved-views-row">
+      <Collapse in={showAdvanced}>
+        <div className="filters-advanced-row">
+          <MultiSelect
+            label="Tipo subactivo"
+            data={toSelectData(SUBASSET_CATEGORIES)}
+            value={filters.subassetCategoryFilters}
+            onChange={(values) =>
+              onFiltersChange({
+                ...filters,
+                subassetCategoryFilters: values as DashboardFilters['subassetCategoryFilters']
+              })
+            }
+            placeholder="Todos"
+            searchable
+            clearable
+            nothingFoundMessage="Sin resultados"
+          />
+
+          <MultiSelect
+            label="Subactivo"
+            data={toSelectData(subassets)}
+            value={filters.subassetFilters}
+            onChange={(values) => onFiltersChange({ ...filters, subassetFilters: values })}
+            placeholder="Todos"
+            searchable
+            clearable
+            nothingFoundMessage="Sin resultados"
+          />
+        </div>
+      </Collapse>
+
+      <div className="saved-views-row saved-views-row-compact">
         <TextInput
-          label="Guardar vista actual"
           value={viewName}
           onChange={(event) => setViewName(event.target.value)}
-          placeholder="Ej: Liquidez + crypto"
+          placeholder="Nombre para guardar vista"
         />
         <AppButton
           tone="tertiary"
@@ -144,9 +286,8 @@ export const GlobalFiltersBar = ({
         </AppButton>
 
         <Select
-          label="Vistas guardadas"
           value={selectedViewId || null}
-          placeholder="Seleccionar..."
+          placeholder="Vista guardada"
           data={savedViews.map((view) => ({ value: view.id, label: view.name }))}
           onChange={(value) => setSelectedViewId(value ?? '')}
           searchable
@@ -165,7 +306,7 @@ export const GlobalFiltersBar = ({
             onApplySavedView(selectedViewId)
           }}
         >
-          Aplicar vista
+          Aplicar
         </AppButton>
 
         <AppButton
@@ -181,96 +322,19 @@ export const GlobalFiltersBar = ({
             setSelectedViewId('')
           }}
         >
-          Eliminar vista
+          Eliminar
         </AppButton>
       </div>
 
-      <div className="filters-grid">
-        <TextInput
-          id="global-search"
-          label="Búsqueda"
-          className="filters-grid-wide"
-          placeholder="Buscar por Cuenta o Subactivo"
-          value={filters.searchTerm}
-          onChange={(event) => onFiltersChange({ ...filters, searchTerm: event.target.value })}
-        />
-
-        <MultiSelect
-          label="Tipo"
-          data={toSelectData(HOLDING_TYPES)}
-          value={filters.typeFilters}
-          onChange={(values) => onFiltersChange({ ...filters, typeFilters: values as DashboardFilters['typeFilters'] })}
-          placeholder="Todos"
-          searchable
-          clearable
-          nothingFoundMessage="Sin resultados"
-        />
-
-        <MultiSelect
-          label="Moneda"
-          data={toSelectData(currencies)}
-          value={filters.currencyFilters}
-          onChange={(values) => onFiltersChange({ ...filters, currencyFilters: values })}
-          placeholder="Todas"
-          searchable
-          clearable
-          nothingFoundMessage="Sin resultados"
-        />
-
-        <MultiSelect
-          label="Tipo subactivo"
-          data={toSelectData(SUBASSET_CATEGORIES)}
-          value={filters.subassetCategoryFilters}
-          onChange={(values) =>
-            onFiltersChange({
-              ...filters,
-              subassetCategoryFilters: values as DashboardFilters['subassetCategoryFilters']
-            })
-          }
-          placeholder="Todos"
-          searchable
-          clearable
-          nothingFoundMessage="Sin resultados"
-        />
-
-        <MultiSelect
-          label="Subactivo"
-          data={toSelectData(subassets)}
-          value={filters.subassetFilters}
-          onChange={(values) => onFiltersChange({ ...filters, subassetFilters: values })}
-          placeholder="Todos"
-          searchable
-          clearable
-          nothingFoundMessage="Sin resultados"
-        />
-
-        <MultiSelect
-          label="Tags"
-          data={toSelectData(tags)}
-          value={filters.tagFilters}
-          onChange={(values) => onFiltersChange({ ...filters, tagFilters: values })}
-          placeholder="Todos"
-          searchable
-          clearable
-          nothingFoundMessage="Sin resultados"
-        />
-      </div>
-
-      <div className="filters-actions">
-        <p className="muted-text">
-          Filas filtradas: {filteredRowsCount}/{totalRowsCount}
-        </p>
-        <AppButton
-          tone="tertiary"
-          disabled={!hasActiveFilters}
-          onClick={() => onFiltersChange(cloneFilters(DEFAULT_DASHBOARD_FILTERS))}
-        >
-          Limpiar filtros
-        </AppButton>
-        <AppButton tone="primary" onClick={onOpenAddMovement}>
-          + Agregar movimiento
-        </AppButton>
-      </div>
+      {activeFilterChips.length > 0 ? (
+        <div className="active-filter-chips" aria-label="Filtros activos">
+          {activeFilterChips.map((chip) => (
+            <button key={chip.id} type="button" className="active-filter-chip" onClick={chip.onRemove}>
+              {chip.label} <span aria-hidden="true">×</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
     </section>
   )
 }

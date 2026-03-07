@@ -233,6 +233,17 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
     )
   }, [computedRows])
 
+  const portfolioTotalsByType = useMemo(() => {
+    return rows.reduce(
+      (accumulator, row) => {
+        const conversion = convertRowToUsd(row, settings)
+        accumulator[row.tipo] += conversion.usdFinanciero
+        return accumulator
+      },
+      { ...EMPTY_TOTALS_BY_TYPE }
+    )
+  }, [rows, settings])
+
   const chartsData = useMemo(() => {
     return {
       byType: aggregateTotals(filteredRows, settings, (row) => row.tipo),
@@ -346,18 +357,6 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
           cloudSyncError={cloudSyncError}
           lastCloudSyncAt={lastCloudSyncAt}
           isCloudSyncing={isCloudSyncing}
-          canUndo={canUndo}
-          canRedo={canRedo}
-          onUndo={() => {
-            if (undo()) {
-              pushToast('Deshacer aplicado', 'success')
-            }
-          }}
-          onRedo={() => {
-            if (redo()) {
-              pushToast('Rehacer aplicado', 'success')
-            }
-          }}
           userEmail={email}
           onLogout={email ? onLogout : undefined}
           theme={theme}
@@ -377,6 +376,15 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
           </p>
         ) : null}
 
+        <SnapshotHistorySection
+          snapshots={snapshots}
+          totalUsdFinanciero={portfolioTotals.usdFinanciero}
+          totalUsdOficial={portfolioTotals.usdOficial}
+          onCaptureSnapshot={handleCaptureSnapshot}
+        />
+
+        <SummaryCards totalUsdFinanciero={portfolioTotals.usdFinanciero} totalsByType={portfolioTotalsByType} />
+
         <GlobalFiltersBar
           filters={filters}
           currencies={currencies}
@@ -386,24 +394,9 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
           filteredRowsCount={filteredRows.length}
           totalRowsCount={rows.length}
           onFiltersChange={setFilters}
-          onOpenAddMovement={() => setIsAddMovementOpen(true)}
           onSaveCurrentView={handleSaveCurrentView}
           onApplySavedView={handleApplySavedView}
           onDeleteSavedView={handleDeleteSavedView}
-        />
-
-        <SummaryCards
-          totalUsdFinanciero={totals.usdFinanciero}
-          totalUsdOficial={totals.usdOficial}
-          totalsByType={totals.byType}
-        />
-
-        <SnapshotHistorySection snapshots={snapshots} onCaptureSnapshot={handleCaptureSnapshot} />
-
-        <AllocationAlertsHome
-          thresholdPct={thresholdPct}
-          alerts={allocationAlerts}
-          onOpenConfig={() => setIsTargetsOpen(true)}
         />
 
         <ChartsSection byType={chartsData.byType} bySubasset={chartsData.bySubasset} byAccount={chartsData.byAccount} />
@@ -416,6 +409,7 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
           currencyOptions={movementCurrencies}
           subassetOptions={movementSubassets}
           isCreateOpen={isAddMovementOpen}
+          onOpenCreate={() => setIsAddMovementOpen(true)}
           onCloseCreate={() => setIsAddMovementOpen(false)}
           onCreateMovement={(draft) => {
             addMovement(draft)
@@ -439,6 +433,24 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
             deleteMovement(id)
             pushToast('Movimiento eliminado')
           }}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onUndo={() => {
+            if (undo()) {
+              pushToast('Deshacer aplicado', 'success')
+            }
+          }}
+          onRedo={() => {
+            if (redo()) {
+              pushToast('Rehacer aplicado', 'success')
+            }
+          }}
+        />
+
+        <AllocationAlertsHome
+          thresholdPct={thresholdPct}
+          alerts={allocationAlerts}
+          onOpenConfig={() => setIsTargetsOpen(true)}
         />
 
       </main>

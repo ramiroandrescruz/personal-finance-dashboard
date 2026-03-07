@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
-import { Modal, NativeSelect, TextInput } from '@mantine/core'
+import { ActionIcon, Menu, Modal, NativeSelect, TextInput } from '@mantine/core'
 import { HOLDING_TYPES } from '../types'
 import type { HoldingMovement, HoldingType } from '../types'
 import type { ConversionDraft, MovementDraft, TransferCreateResult, TransferDraft } from '../hooks/useHoldingsStore'
@@ -16,11 +16,16 @@ interface MovementsSectionProps {
   currencyOptions: string[]
   subassetOptions: string[]
   isCreateOpen: boolean
+  onOpenCreate: () => void
   onCloseCreate: () => void
   onCreateMovement: (draft: MovementDraft) => void
   onCreateTransfer: (draft: TransferDraft) => TransferCreateResult
   onCreateConversion: (draft: ConversionDraft) => TransferCreateResult
   onDeleteMovement: (id: string) => void
+  canUndo: boolean
+  canRedo: boolean
+  onUndo: () => void
+  onRedo: () => void
 }
 
 interface MovementFormState {
@@ -65,11 +70,16 @@ export const MovementsSection = ({
   currencyOptions,
   subassetOptions,
   isCreateOpen,
+  onOpenCreate,
   onCloseCreate,
   onCreateMovement,
   onCreateTransfer,
   onCreateConversion,
-  onDeleteMovement
+  onDeleteMovement,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo
 }: MovementsSectionProps) => {
   const [form, setForm] = useState<MovementFormState>(emptyForm)
   const [error, setError] = useState<string | null>(null)
@@ -246,24 +256,35 @@ export const MovementsSection = ({
 
   return (
     <section className="table-section" aria-label="Movimientos">
-      <div className="table-toolbar">
+      <div className="table-toolbar movements-toolbar">
         <div>
           <h2 className="table-section-title">Movimientos</h2>
-          <p className="muted-text">Registrá movimientos agregados (entrada/salida/transferencia) para reconstruir posiciones.</p>
+          <p className="muted-text">Trazabilidad operativa con edición y conversión en una sola acción.</p>
         </div>
-        <p className="muted-text">Registros: {movements.length}</p>
+
+        <div className="movements-toolbar-actions">
+          <AppButton tone="tertiary" onClick={onUndo} disabled={!canUndo} title="Ctrl/Cmd + Z">
+            Deshacer
+          </AppButton>
+          <AppButton tone="tertiary" onClick={onRedo} disabled={!canRedo} title="Ctrl/Cmd + Shift + Z">
+            Rehacer
+          </AppButton>
+          <AppButton tone="primary" onClick={onOpenCreate}>
+            + Agregar movimiento
+          </AppButton>
+        </div>
       </div>
 
       <div className="table-shell" role="region" aria-label="Tabla de movimientos" tabIndex={0}>
-        <table>
+        <table className="movements-table">
           <thead>
             <tr>
               <th>Fecha</th>
               <th>Movimiento</th>
               <th>Cuenta</th>
               <th>Moneda</th>
-              <th>Monto</th>
-              <th>Cantidad</th>
+              <th className="numeric-col">Monto</th>
+              <th className="numeric-col">Cantidad</th>
               <th>Tipo</th>
               <th>Subactivo</th>
               <th>Tags</th>
@@ -278,25 +299,32 @@ export const MovementsSection = ({
                 <td>{movementKindToLabel(movement.kind)}</td>
                 <td>{movement.cuenta}</td>
                 <td>{movement.moneda}</td>
-                <td>{formatPlainNumber(movement.monto)}</td>
-                <td>{movement.cantidad === null ? '—' : formatQuantity(movement.cantidad)}</td>
+                <td className="numeric-col">{formatPlainNumber(movement.monto)}</td>
+                <td className="numeric-col">{movement.cantidad === null ? '—' : formatQuantity(movement.cantidad)}</td>
                 <td>{movement.tipo}</td>
                 <td>{movement.subactivo}</td>
                 <td>{movement.tags.length === 0 ? '—' : formatTags(movement.tags)}</td>
                 <td>{movement.note || '—'}</td>
                 <td>
-                  <AppButton
-                    type="button"
-                    tone="danger-outline"
-                    size="compact-sm"
-                    onClick={() => {
-                      if (window.confirm('¿Eliminar este movimiento?')) {
-                        onDeleteMovement(movement.id)
-                      }
-                    }}
-                  >
-                    Eliminar
-                  </AppButton>
+                  <Menu withinPortal position="bottom-end">
+                    <Menu.Target>
+                      <ActionIcon variant="default" radius="md" aria-label="Acciones movimiento">
+                        ⋯
+                      </ActionIcon>
+                    </Menu.Target>
+                    <Menu.Dropdown>
+                      <Menu.Item
+                        color="red"
+                        onClick={() => {
+                          if (window.confirm('¿Eliminar este movimiento?')) {
+                            onDeleteMovement(movement.id)
+                          }
+                        }}
+                      >
+                        Eliminar
+                      </Menu.Item>
+                    </Menu.Dropdown>
+                  </Menu>
                 </td>
               </tr>
             ))}
@@ -312,7 +340,7 @@ export const MovementsSection = ({
       </div>
 
       <Modal opened={isCreateOpen} onClose={onCloseCreate} title="Agregar movimiento" centered>
-        <p className="modal-note">Para compras/ventas diarias podés agrupar en un solo movimiento resumen.</p>
+        <p className="modal-note">Registrá una operación individual o una conversión con salida + entrada.</p>
 
         <form className="form-grid" onSubmit={handleSubmit}>
           <NativeSelect

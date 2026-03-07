@@ -1,16 +1,5 @@
 import { type CSSProperties, useMemo } from 'react'
-import {
-  Bar,
-  BarChart,
-  Cell,
-  Legend,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis
-} from 'recharts'
+import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { formatUsd } from '../utils/number'
 
 interface ChartPoint {
@@ -24,33 +13,53 @@ interface ChartsSectionProps {
   byAccount: ChartPoint[]
 }
 
-const PIE_COLORS = ['#00d084', '#3b82f6', '#f59e0b', '#fb7185', '#8b5cf6', '#ef4444', '#14b8a6', '#06b6d4']
+const PIE_COLORS = ['#22d3ee', '#14b8a6', '#f59e0b', '#f97316', '#f43f5e', '#3b82f6', '#10b981', '#eab308']
+const SUBASSET_PIE_THRESHOLD = 6
 
 const currencyTooltipFormatter = (value: number) => formatUsd(value)
 const formatPercentage = (value: number): string => `${value.toFixed(2)}%`
 
-export const ChartsSection = ({ byType, bySubasset, byAccount }: ChartsSectionProps) => {
-  const bySubassetWithPercentage = useMemo(() => {
-    const total = bySubasset.reduce((accumulator, item) => accumulator + item.value, 0)
+const truncateLabel = (value: string, maxLength: number = 16): string => {
+  if (value.length <= maxLength) {
+    return value
+  }
 
-    return bySubasset.map((item) => ({
+  return `${value.slice(0, maxLength - 1)}…`
+}
+
+const sortDesc = (rows: ChartPoint[]): ChartPoint[] => {
+  return [...rows].sort((left, right) => right.value - left.value)
+}
+
+export const ChartsSection = ({ byType, bySubasset, byAccount }: ChartsSectionProps) => {
+  const sortedByType = useMemo(() => sortDesc(byType), [byType])
+  const sortedBySubasset = useMemo(() => sortDesc(bySubasset), [bySubasset])
+  const sortedByAccount = useMemo(() => sortDesc(byAccount), [byAccount])
+
+  const bySubassetWithPercentage = useMemo(() => {
+    const total = sortedBySubasset.reduce((accumulator, item) => accumulator + item.value, 0)
+
+    return sortedBySubasset.map((item) => ({
       ...item,
       percentage: total > 0 ? (item.value / total) * 100 : 0
     }))
-  }, [bySubasset])
+  }, [sortedBySubasset])
 
-  const subassetMeta = useMemo(() => {
-    const map = new Map<string, { percentage: number; value: number }>()
+  const subassetBarData = useMemo(() => {
+    if (sortedBySubasset.length <= SUBASSET_PIE_THRESHOLD) {
+      return sortedBySubasset
+    }
 
-    bySubassetWithPercentage.forEach((item) => {
-      map.set(item.name, {
-        percentage: item.percentage,
-        value: item.value
-      })
-    })
+    const top = sortedBySubasset.slice(0, 8)
+    const remaining = sortedBySubasset.slice(8)
+    const othersValue = remaining.reduce((accumulator, item) => accumulator + item.value, 0)
 
-    return map
-  }, [bySubassetWithPercentage])
+    if (othersValue <= 0) {
+      return top
+    }
+
+    return [...top, { name: 'Otros', value: othersValue }]
+  }, [sortedBySubasset])
 
   const tooltipStyle: CSSProperties = {
     background: 'var(--tooltip-bg)',
@@ -65,17 +74,17 @@ export const ChartsSection = ({ byType, bySubasset, byAccount }: ChartsSectionPr
   }
 
   return (
-    <section className="charts-grid" aria-label="Gráficos">
+    <section className="charts-grid" aria-label="Distribuciones">
       <article className="chart-card">
-        <h2>Distribución por Tipo (USD Financiero)</h2>
-        {byType.length === 0 ? (
+        <h2>Distribución por tipo</h2>
+        {sortedByType.length === 0 ? (
           <p className="empty-state">Sin datos para los filtros actuales.</p>
         ) : (
           <div className="chart-container">
             <ResponsiveContainer width="100%" height={280}>
               <PieChart>
-                <Pie data={byType} dataKey="value" nameKey="name" innerRadius={65} outerRadius={95} paddingAngle={2}>
-                  {byType.map((entry, index) => (
+                <Pie data={sortedByType} dataKey="value" nameKey="name" innerRadius={70} outerRadius={98} paddingAngle={2}>
+                  {sortedByType.map((entry, index) => (
                     <Cell key={`${entry.name}-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                   ))}
                 </Pie>
@@ -85,7 +94,6 @@ export const ChartsSection = ({ byType, bySubasset, byAccount }: ChartsSectionPr
                   labelStyle={tooltipTextStyle}
                   itemStyle={tooltipTextStyle}
                 />
-                <Legend />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -93,21 +101,14 @@ export const ChartsSection = ({ byType, bySubasset, byAccount }: ChartsSectionPr
       </article>
 
       <article className="chart-card">
-        <h2>Distribución por Subactivo (USD Financiero)</h2>
+        <h2>Distribución por subactivo</h2>
         {bySubassetWithPercentage.length === 0 ? (
           <p className="empty-state">Sin datos para los filtros actuales.</p>
-        ) : (
+        ) : bySubassetWithPercentage.length <= SUBASSET_PIE_THRESHOLD ? (
           <div className="chart-container">
-            <ResponsiveContainer width="100%" height={320}>
+            <ResponsiveContainer width="100%" height={300}>
               <PieChart>
-                <Pie
-                  data={bySubassetWithPercentage}
-                  dataKey="value"
-                  nameKey="name"
-                  innerRadius={70}
-                  outerRadius={105}
-                  paddingAngle={2}
-                >
+                <Pie data={bySubassetWithPercentage} dataKey="value" nameKey="name" innerRadius={74} outerRadius={108} paddingAngle={2}>
                   {bySubassetWithPercentage.map((entry, index) => (
                     <Cell key={`${entry.name}-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                   ))}
@@ -115,52 +116,67 @@ export const ChartsSection = ({ byType, bySubasset, byAccount }: ChartsSectionPr
                 <Tooltip
                   formatter={(value, _name, item) => {
                     const percentage = (item.payload as { percentage?: number })?.percentage ?? 0
-                    return [`${formatUsd(Number(value))} (${formatPercentage(percentage)})`, 'USD Financiero']
+                    return [`${formatUsd(Number(value))} (${formatPercentage(percentage)})`, 'USD financiero']
                   }}
                   contentStyle={tooltipStyle}
                   labelStyle={tooltipTextStyle}
                   itemStyle={tooltipTextStyle}
                 />
-                <Legend
-                  wrapperStyle={{ paddingTop: 6 }}
-                  formatter={(value) => {
-                    const meta = subassetMeta.get(String(value))
-
-                    if (!meta) {
-                      return value
-                    }
-
-                    return `${value} · ${formatPercentage(meta.percentage)} · ${formatUsd(meta.value)}`
-                  }}
-                />
               </PieChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="chart-container">
+            <ResponsiveContainer width="100%" height={Math.min(420, Math.max(280, subassetBarData.length * 34))}>
+              <BarChart data={subassetBarData} layout="vertical" margin={{ top: 4, right: 16, left: 8, bottom: 6 }}>
+                <XAxis type="number" tickFormatter={(value) => `$${Math.round(value / 1000)}k`} />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  width={120}
+                  tickFormatter={(value) => truncateLabel(String(value), 14)}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <Tooltip
+                  formatter={currencyTooltipFormatter}
+                  labelFormatter={(value) => String(value)}
+                  contentStyle={tooltipStyle}
+                  labelStyle={tooltipTextStyle}
+                  itemStyle={tooltipTextStyle}
+                />
+                <Bar dataKey="value" fill="var(--accent)" radius={[0, 8, 8, 0]} />
+              </BarChart>
             </ResponsiveContainer>
           </div>
         )}
       </article>
 
       <article className="chart-card chart-card-wide">
-        <h2>Totales por Cuenta (USD Financiero)</h2>
-        {byAccount.length === 0 ? (
+        <h2>Totales por cuenta</h2>
+        {sortedByAccount.length === 0 ? (
           <p className="empty-state">Sin datos para los filtros actuales.</p>
         ) : (
           <div className="chart-container">
-            <ResponsiveContainer width="100%" height={320}>
-              <BarChart data={byAccount} margin={{ top: 4, right: 12, left: 8, bottom: 56 }}>
-                <XAxis dataKey="name" angle={-20} textAnchor="end" interval={0} height={70} />
-                <YAxis tickFormatter={(value) => `$${Math.round(value / 1000)}k`} width={70} />
+            <ResponsiveContainer width="100%" height={Math.min(500, Math.max(320, sortedByAccount.length * 34))}>
+              <BarChart data={sortedByAccount} layout="vertical" margin={{ top: 6, right: 16, left: 8, bottom: 10 }}>
+                <XAxis type="number" tickFormatter={(value) => `$${Math.round(value / 1000)}k`} />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  width={140}
+                  tickFormatter={(value) => truncateLabel(String(value), 18)}
+                  tickLine={false}
+                  axisLine={false}
+                />
                 <Tooltip
                   formatter={currencyTooltipFormatter}
+                  labelFormatter={(value) => String(value)}
                   contentStyle={tooltipStyle}
                   labelStyle={tooltipTextStyle}
                   itemStyle={tooltipTextStyle}
                 />
-                <Bar
-                  dataKey="value"
-                  fill="var(--bar-fill)"
-                  radius={[8, 8, 0, 0]}
-                  activeBar={{ fill: '#38bdf8', stroke: '#7dd3fc', strokeWidth: 1 }}
-                />
+                <Bar dataKey="value" fill="var(--bar-fill)" radius={[0, 8, 8, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

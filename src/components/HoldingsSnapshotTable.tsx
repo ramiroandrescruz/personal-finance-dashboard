@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import type { HoldingRow, Settings } from '../types'
 import { convertRowToUsd } from '../utils/conversion'
 import { formatPlainNumber, formatQuantity, formatUsd } from '../utils/number'
-import { formatTags } from '../utils/tags'
 
 type SortColumn = 'cuenta' | 'moneda' | 'monto' | 'cantidad' | 'tipo' | 'usdOficial' | 'usdFinanciero' | 'subactivo'
 
@@ -98,14 +97,14 @@ export const HoldingsSnapshotTable = ({ rows, settings }: HoldingsSnapshotTableP
     <section className="table-section" aria-label="Posiciones actuales">
       <div className="table-toolbar table-toolbar-compact">
         <div>
-          <h2 className="table-section-title">Posiciones actuales (reconstruidas)</h2>
-          <p className="muted-text">Vista calculada automáticamente a partir de movimientos.</p>
+          <h2 className="table-section-title">Posiciones actuales</h2>
+          <p className="muted-text">Vista reconstruida desde movimientos.</p>
         </div>
         <p className="muted-text">Filas: {sortedRows.length}</p>
       </div>
 
       <div className="table-shell" role="region" aria-label="Tabla de posiciones reconstruidas" tabIndex={0}>
-        <table>
+        <table className="positions-table">
           <thead>
             <tr>
               <th>
@@ -114,33 +113,8 @@ export const HoldingsSnapshotTable = ({ rows, settings }: HoldingsSnapshotTableP
                 </button>
               </th>
               <th>
-                <button type="button" className="sort-button" onClick={() => handleSort('moneda')}>
-                  Moneda {sortArrow(sortState, 'moneda')}
-                </button>
-              </th>
-              <th>
-                <button type="button" className="sort-button" onClick={() => handleSort('monto')}>
-                  Monto {sortArrow(sortState, 'monto')}
-                </button>
-              </th>
-              <th>
-                <button type="button" className="sort-button" onClick={() => handleSort('cantidad')}>
-                  Cantidad {sortArrow(sortState, 'cantidad')}
-                </button>
-              </th>
-              <th>
                 <button type="button" className="sort-button" onClick={() => handleSort('tipo')}>
                   Tipo {sortArrow(sortState, 'tipo')}
-                </button>
-              </th>
-              <th>
-                <button type="button" className="sort-button" onClick={() => handleSort('usdOficial')}>
-                  USD (Oficial) {sortArrow(sortState, 'usdOficial')}
-                </button>
-              </th>
-              <th>
-                <button type="button" className="sort-button" onClick={() => handleSort('usdFinanciero')}>
-                  USD (Financiero) {sortArrow(sortState, 'usdFinanciero')}
                 </button>
               </th>
               <th>
@@ -148,7 +122,32 @@ export const HoldingsSnapshotTable = ({ rows, settings }: HoldingsSnapshotTableP
                   Subactivo {sortArrow(sortState, 'subactivo')}
                 </button>
               </th>
-              <th>Tags</th>
+              <th className="numeric-col">
+                <button type="button" className="sort-button" onClick={() => handleSort('monto')}>
+                  Monto {sortArrow(sortState, 'monto')}
+                </button>
+              </th>
+              <th className="numeric-col">
+                <button type="button" className="sort-button" onClick={() => handleSort('usdFinanciero')}>
+                  USD financiero {sortArrow(sortState, 'usdFinanciero')}
+                </button>
+              </th>
+              <th className="secondary-col">
+                <button type="button" className="sort-button" onClick={() => handleSort('moneda')}>
+                  Moneda {sortArrow(sortState, 'moneda')}
+                </button>
+              </th>
+              <th className="numeric-col secondary-col">
+                <button type="button" className="sort-button" onClick={() => handleSort('cantidad')}>
+                  Cantidad {sortArrow(sortState, 'cantidad')}
+                </button>
+              </th>
+              <th className="numeric-col secondary-col">
+                <button type="button" className="sort-button" onClick={() => handleSort('usdOficial')}>
+                  USD oficial {sortArrow(sortState, 'usdOficial')}
+                </button>
+              </th>
+              <th className="secondary-col">Tags</th>
             </tr>
           </thead>
           <tbody>
@@ -158,14 +157,26 @@ export const HoldingsSnapshotTable = ({ rows, settings }: HoldingsSnapshotTableP
               return (
                 <tr key={row.id}>
                   <td>{row.cuenta}</td>
-                  <td>{row.moneda}</td>
-                  <td>{formatPlainNumber(row.monto)}</td>
-                  <td>{row.cantidad === null ? '—' : formatQuantity(row.cantidad)}</td>
                   <td>{row.tipo}</td>
-                  <td>{formatUsd(conversion?.usdOficial ?? 0)}</td>
-                  <td>{formatUsd(conversion?.usdFinanciero ?? 0)}</td>
                   <td>{row.subactivo}</td>
-                  <td>{row.tags.length ? formatTags(row.tags) : '—'}</td>
+                  <td className="numeric-col">{formatPlainNumber(row.monto)}</td>
+                  <td className="numeric-col emphasis-col">{formatUsd(conversion?.usdFinanciero ?? 0)}</td>
+                  <td className="secondary-col">{row.moneda}</td>
+                  <td className="numeric-col secondary-col">{row.cantidad === null ? '—' : formatQuantity(row.cantidad)}</td>
+                  <td className="numeric-col secondary-col">{formatUsd(conversion?.usdOficial ?? 0)}</td>
+                  <td className="secondary-col">
+                    {row.tags.length === 0 ? (
+                      '—'
+                    ) : (
+                      <div className="tag-chip-list">
+                        {row.tags.map((tag) => (
+                          <span key={`${row.id}-${tag}`} className="tag-chip" title={tag}>
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </td>
                 </tr>
               )
             })}

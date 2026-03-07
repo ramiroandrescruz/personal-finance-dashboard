@@ -1,3 +1,4 @@
+import { Menu } from '@mantine/core'
 import { formatTime } from '../utils/number'
 import { AppButton } from './ui/AppButton'
 
@@ -9,10 +10,6 @@ interface AppHeaderProps {
   lastCloudSyncAt?: number | null
   isCloudSyncing?: boolean
   onOpenSettings: () => void
-  onUndo: () => void
-  onRedo: () => void
-  canUndo: boolean
-  canRedo: boolean
   onResetData: () => void
   theme: 'dark' | 'light'
   onToggleTheme: () => void
@@ -28,31 +25,27 @@ export const AppHeader = ({
   lastCloudSyncAt,
   isCloudSyncing,
   onOpenSettings,
-  onUndo,
-  onRedo,
-  canUndo,
-  canRedo,
   onResetData,
   theme,
   onToggleTheme,
   userEmail,
   onLogout
 }: AppHeaderProps) => {
-  const persistenceLabel =
+  const syncStatus =
     syncMode === 'firebase'
       ? cloudSyncError
-        ? 'Sync Firebase con error'
+        ? 'Error de sync cloud'
         : isCloudSyncing
-          ? 'Sincronizando Firebase...'
-          : 'Sync Firebase ✓'
-      : 'Guardado local ✓'
+          ? 'Sincronizando...'
+          : 'Cloud sincronizado'
+      : 'Guardado local'
 
   return (
     <header className="dashboard-header">
-      <div>
+      <div className="header-brand">
         <h1>Personal Finance Dashboard</h1>
         <p className="muted-text">
-          {persistenceLabel} · Última edición: {formatTime(lastEditedAt)} · Último guardado: {formatTime(lastSavedAt)}
+          {syncStatus} · Editado {formatTime(lastEditedAt)} · Guardado {formatTime(lastSavedAt)}
           {syncMode === 'firebase' ? ` · Última sync cloud: ${formatTime(lastCloudSyncAt ?? lastSavedAt)}` : ''}
         </p>
         {cloudSyncError ? (
@@ -62,56 +55,26 @@ export const AppHeader = ({
         ) : null}
       </div>
 
-      <div className="header-actions">
-        {userEmail ? (
-          <span className="user-pill" title={userEmail}>
-            {userEmail}
-          </span>
-        ) : null}
-        <AppButton tone="secondary" className="header-action-button" onClick={onOpenSettings}>
-          Ajustes
-        </AppButton>
-        <AppButton
-          tone="tertiary"
-          className="header-action-button"
-          aria-disabled={!canUndo}
-          onClick={() => {
-            if (!canUndo) {
-              return
-            }
-
-            onUndo()
-          }}
-          title="Ctrl/Cmd + Z"
-        >
-          Deshacer
-        </AppButton>
-        <AppButton
-          tone="tertiary"
-          className="header-action-button"
-          aria-disabled={!canRedo}
-          onClick={() => {
-            if (!canRedo) {
-              return
-            }
-
-            onRedo()
-          }}
-          title="Ctrl/Cmd + Shift + Z"
-        >
-          Rehacer
-        </AppButton>
+      <div className="header-actions header-actions-compact">
         <AppButton tone="tertiary" className="header-action-button" onClick={onToggleTheme}>
-          Tema: {theme === 'dark' ? 'Oscuro' : 'Claro'}
+          {theme === 'dark' ? 'Modo oscuro' : 'Modo claro'}
         </AppButton>
-        <AppButton tone="danger" className="header-action-button" onClick={onResetData}>
-          Resetear datos
-        </AppButton>
-        {onLogout ? (
-          <AppButton tone="tertiary" className="header-action-button" onClick={onLogout}>
-            Cerrar sesión
-          </AppButton>
-        ) : null}
+
+        <Menu shadow="md" width={230} position="bottom-end" withinPortal>
+          <Menu.Target>
+            <AppButton tone="tertiary" className="header-action-button">
+              {userEmail ? `Cuenta · ${userEmail}` : 'Menú'}
+            </AppButton>
+          </Menu.Target>
+          <Menu.Dropdown>
+            <Menu.Label>{userEmail ? userEmail : 'Acciones'}</Menu.Label>
+            <Menu.Item onClick={onOpenSettings}>Ajustes</Menu.Item>
+            <Menu.Item color="red" onClick={onResetData}>
+              Resetear datos
+            </Menu.Item>
+            {onLogout ? <Menu.Item onClick={onLogout}>Cerrar sesión</Menu.Item> : null}
+          </Menu.Dropdown>
+        </Menu>
       </div>
     </header>
   )
