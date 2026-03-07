@@ -208,10 +208,13 @@ const isStringArray = (value: unknown): value is string[] => Array.isArray(value
 
 const normalizeFilterState = (filters: DashboardFilterState): DashboardFilterState => {
   const normalizedTypeFilters = filters.typeFilters.filter((type) => HOLDING_TYPES.includes(type))
+  const rawLiquidity = (filters as DashboardFilterState & { liquidityFilters?: string[] }).liquidityFilters ?? []
+  const normalizedLiquidityFilters = rawLiquidity.filter((value) => value === 'LIQUID' || value === 'ILLIQUID') as DashboardFilterState['liquidityFilters']
 
   return {
     searchTerm: filters.searchTerm.trim(),
     typeFilters: normalizedTypeFilters,
+    liquidityFilters: normalizedLiquidityFilters,
     currencyFilters: normalizeTags(filters.currencyFilters),
     subassetCategoryFilters: normalizeTags(filters.subassetCategoryFilters),
     subassetFilters: normalizeTags(filters.subassetFilters),
@@ -234,7 +237,13 @@ const isValidFilterState = (filters: unknown): filters is DashboardFilterState =
     return false
   }
 
+  const validLiquidityFilters =
+    candidate.liquidityFilters === undefined ||
+    (Array.isArray(candidate.liquidityFilters) &&
+      candidate.liquidityFilters.every((item) => item === 'LIQUID' || item === 'ILLIQUID'))
+
   return (
+    validLiquidityFilters &&
     isStringArray(candidate.currencyFilters) &&
     isStringArray(candidate.subassetCategoryFilters) &&
     isStringArray(candidate.subassetFilters) &&

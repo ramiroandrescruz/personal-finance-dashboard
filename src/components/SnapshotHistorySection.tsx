@@ -1,7 +1,7 @@
 import { type CSSProperties, useMemo } from 'react'
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { PortfolioSnapshot } from '../types'
-import { buildSnapshotVariations, getSnapshotDateKey } from '../utils/snapshots'
+import { buildSnapshotVariations, getSnapshotDateKey, type SnapshotVariations } from '../utils/snapshots'
 import { formatPlainNumber, formatTime, formatUsd } from '../utils/number'
 import { AppButton } from './ui/AppButton'
 
@@ -11,6 +11,7 @@ interface SnapshotHistorySectionProps {
   totalUsdOficial: number
   liquidUsdFinanciero: number
   illiquidUsdFinanciero: number
+  fallbackVariations?: SnapshotVariations
   onCaptureSnapshot: () => void
 }
 
@@ -54,9 +55,9 @@ const formatSignedPct = (value: number | null): string => {
 }
 
 const PERIOD_HELPERS: Record<'daily' | 'weekly' | 'monthly', string> = {
-  daily: 'Se requieren 2 snapshots para variación diaria.',
-  weekly: 'Se requieren snapshots separados por 7 días para variación semanal.',
-  monthly: 'Se requieren snapshots separados por 30 días para variación mensual.'
+  daily: 'Se requiere historial previo al día anterior.',
+  weekly: 'Se requiere historial previo de al menos 7 días.',
+  monthly: 'Se requiere historial previo de al menos 30 días.'
 }
 
 export const SnapshotHistorySection = ({
@@ -65,13 +66,22 @@ export const SnapshotHistorySection = ({
   totalUsdOficial,
   liquidUsdFinanciero,
   illiquidUsdFinanciero,
+  fallbackVariations,
   onCaptureSnapshot
 }: SnapshotHistorySectionProps) => {
   const sortedSnapshots = useMemo(() => {
     return [...snapshots].sort((left, right) => left.date.localeCompare(right.date))
   }, [snapshots])
 
-  const variations = useMemo(() => buildSnapshotVariations(sortedSnapshots), [sortedSnapshots])
+  const variations = useMemo(() => {
+    const snapshotVariations = buildSnapshotVariations(sortedSnapshots)
+
+    return {
+      daily: snapshotVariations.daily ?? fallbackVariations?.daily ?? null,
+      weekly: snapshotVariations.weekly ?? fallbackVariations?.weekly ?? null,
+      monthly: snapshotVariations.monthly ?? fallbackVariations?.monthly ?? null
+    }
+  }, [fallbackVariations, sortedSnapshots])
 
   const latestSnapshot = sortedSnapshots[sortedSnapshots.length - 1] ?? null
   const todaySnapshotDate = getSnapshotDateKey()

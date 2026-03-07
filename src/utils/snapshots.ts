@@ -1,4 +1,4 @@
-import type { HoldingMovement, PortfolioSnapshot } from '../types'
+import type { HoldingMovement, PortfolioSnapshot, Settings } from '../types'
 import { convertRowToUsd } from './conversion'
 import { rebuildRowsFromMovements } from './transactions'
 
@@ -130,6 +130,73 @@ export const buildSnapshotVariations = (snapshots: PortfolioSnapshot[]): Snapsho
     daily: calculatePeriodVariation(sorted, current, 1),
     weekly: calculatePeriodVariation(sorted, current, 7),
     monthly: calculatePeriodVariation(sorted, current, 30)
+  }
+}
+
+const summarizeUsdTotalsAtDate = (movements: HoldingMovement[], settings: Settings, dateKey: string) => {
+  const rows = rebuildRowsFromMovements(movements.filter((movement) => movement.date <= dateKey))
+
+  return rows.reduce(
+    (accumulator, row) => {
+      const conversion = convertRowToUsd(row, settings)
+      accumulator.usdOficial += conversion.usdOficial
+      accumulator.usdFinanciero += conversion.usdFinanciero
+      return accumulator
+    },
+    { usdOficial: 0, usdFinanciero: 0 }
+  )
+}
+
+const findLatestMovementDateAtOrBefore = (movements: HoldingMovement[], dateKey: string): string | null => {
+  const eligible = movements.filter((movement) => movement.date <= dateKey).sort((left, right) => right.date.localeCompare(left.date))
+  return eligible[0]?.date ?? null
+}
+
+const calculateMovementPeriodVariation = (
+  movements: HoldingMovement[],
+  settings: Settings,
+  referenceDate: string,
+  daysBack: number
+): SnapshotPeriodVariation | null => {
+  const targetDate = addDays(referenceDate, -daysBack)
+  const baseDate = findLatestMovementDateAtOrBefore(movements, targetDate)
+
+  if (!baseDate) {
+    return null
+  }
+
+  const currentTotals = summarizeUsdTotalsAtDate(movements, settings, referenceDate)
+  const baseTotals = summarizeUsdTotalsAtDate(movements, settings, baseDate)
+
+  return {
+    financiero: buildVariation(currentTotals.usdFinanciero, baseTotals.usdFinanciero),
+    oficial: buildVariation(currentTotals.usdOficial, baseTotals.usdOficial),
+    baseDate
+  }
+}
+
+export const buildMovementDateVariations = (
+  movements: HoldingMovement[],
+  settings: Settings,
+  referenceDate: string = getSnapshotDateKey()
+): SnapshotVariations => {
+  const normalizedMovements = [...movements].sort((left, right) =>
+    left.date === right.date ? left.createdAt - right.createdAt : left.date.localeCompare(right.date)
+  )
+  const hasCurrentHistory = normalizedMovements.some((movement) => movement.date <= referenceDate)
+
+  if (!hasCurrentHistory) {
+    return {
+      daily: null,
+      weekly: null,
+      monthly: null
+    }
+  }
+
+  return {
+    daily: calculateMovementPeriodVariation(normalizedMovements, settings, referenceDate, 1),
+    weekly: calculateMovementPeriodVariation(normalizedMovements, settings, referenceDate, 7),
+    monthly: calculateMovementPeriodVariation(normalizedMovements, settings, referenceDate, 30)
   }
 }
 

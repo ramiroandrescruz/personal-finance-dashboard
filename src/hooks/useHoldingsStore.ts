@@ -102,6 +102,7 @@ const HISTORY_LIMIT = 60
 const cloneFilterState = (filters: DashboardFilterState): DashboardFilterState => ({
   searchTerm: filters.searchTerm,
   typeFilters: [...filters.typeFilters],
+  liquidityFilters: [...filters.liquidityFilters],
   currencyFilters: [...filters.currencyFilters],
   subassetCategoryFilters: [...filters.subassetCategoryFilters],
   subassetFilters: [...filters.subassetFilters],
@@ -156,6 +157,7 @@ const uniqueStrings = (values: string[]): string[] => {
 const sanitizeFilterState = (filters: DashboardFilterState): DashboardFilterState => ({
   searchTerm: filters.searchTerm,
   typeFilters: Array.from(new Set(filters.typeFilters)),
+  liquidityFilters: Array.from(new Set(filters.liquidityFilters)),
   currencyFilters: uniqueStrings(filters.currencyFilters),
   subassetCategoryFilters: uniqueStrings(filters.subassetCategoryFilters),
   subassetFilters: uniqueStrings(filters.subassetFilters),

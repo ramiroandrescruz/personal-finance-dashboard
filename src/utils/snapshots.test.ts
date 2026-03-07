@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildSnapshotVariations, rebuildSnapshotsFromMovements, upsertSnapshot, type SnapshotVariations } from './snapshots'
+import { buildMovementDateVariations, buildSnapshotVariations, rebuildSnapshotsFromMovements, upsertSnapshot, type SnapshotVariations } from './snapshots'
 import type { HoldingMovement, PortfolioSnapshot } from '../types'
 
 const makeSnapshot = (date: string, financiero: number, oficial: number): PortfolioSnapshot => ({
@@ -91,5 +91,52 @@ describe('rebuildSnapshotsFromMovements', () => {
     expect(rebuilt[0]?.totalUsdFinanciero).toBe(100000)
     expect(rebuilt[1]?.totalUsdFinanciero).toBe(100000)
     expect(rebuilt[2]?.totalUsdFinanciero).toBe(105000)
+  })
+})
+
+describe('buildMovementDateVariations', () => {
+  it('calcula variaciones por fecha usando movimientos aunque no haya snapshots', () => {
+    const movements: HoldingMovement[] = [
+      {
+        id: 'm1',
+        date: '2026-01-01',
+        kind: 'OPENING',
+        cuenta: 'Broker',
+        moneda: 'USD',
+        monto: 1000,
+        cantidad: null,
+        tipo: 'Cash',
+        subactivo: 'USD',
+        liquidity: 'LIQUID',
+        tags: [],
+        note: '',
+        createdAt: 1
+      },
+      {
+        id: 'm2',
+        date: '2026-01-20',
+        kind: 'IN',
+        cuenta: 'Broker',
+        moneda: 'USD',
+        monto: 200,
+        cantidad: null,
+        tipo: 'Cash',
+        subactivo: 'USD',
+        liquidity: 'LIQUID',
+        tags: [],
+        note: '',
+        createdAt: 2
+      }
+    ]
+
+    const variations = buildMovementDateVariations(
+      movements,
+      { arsUsdOficial: 1400, arsUsdFinanciero: 1600 },
+      '2026-01-21'
+    )
+
+    expect(variations.daily?.financiero.delta).toBe(0)
+    expect(variations.weekly?.financiero.delta).toBe(200)
+    expect(variations.monthly).toBeNull()
   })
 })

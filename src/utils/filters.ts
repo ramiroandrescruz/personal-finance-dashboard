@@ -8,6 +8,7 @@ export type DashboardFilters = DashboardFilterState & {
 export const DEFAULT_DASHBOARD_FILTERS: DashboardFilters = {
   searchTerm: '',
   typeFilters: [],
+  liquidityFilters: [],
   currencyFilters: [],
   subassetCategoryFilters: [],
   subassetFilters: [],
@@ -26,6 +27,7 @@ export const applyDashboardFilters = (rows: HoldingRow[], filters: DashboardFilt
   const normalizedSearch = filters.searchTerm.trim().toLowerCase()
   const normalizedTagFilters = filters.tagFilters.map((tag) => tag.toLowerCase())
   const normalizedTypeFilters = filters.typeFilters.map((type) => type.toLowerCase())
+  const normalizedLiquidityFilters = filters.liquidityFilters.map((liquidity) => liquidity.toUpperCase())
   const normalizedCurrencyFilters = filters.currencyFilters.map((currency) => currency.trim().toUpperCase())
   const normalizedSubassetCategoryFilters = filters.subassetCategoryFilters.map((category) => category.toLowerCase())
   const normalizedSubassetFilters = filters.subassetFilters.map((subasset) => subasset.trim().toUpperCase())
@@ -33,6 +35,7 @@ export const applyDashboardFilters = (rows: HoldingRow[], filters: DashboardFilt
   return rows.filter((row) => {
     const currency = row.moneda.trim().toUpperCase()
     const subasset = row.subactivo.trim().toUpperCase()
+    const liquidity = row.liquidity.toUpperCase()
     const rowTags = (row.tags ?? []).map((tag) => tag.toLowerCase())
     const subassetCategory = getSubassetCategory(row).toLowerCase()
 
@@ -41,12 +44,13 @@ export const applyDashboardFilters = (rows: HoldingRow[], filters: DashboardFilt
       row.cuenta.toLowerCase().includes(normalizedSearch) ||
       row.subactivo.toLowerCase().includes(normalizedSearch)
     const matchesType = matchesMultiFilter(row.tipo.toLowerCase(), normalizedTypeFilters)
+    const matchesLiquidity = matchesMultiFilter(liquidity, normalizedLiquidityFilters)
     const matchesCurrency = matchesMultiFilter(currency, normalizedCurrencyFilters)
     const matchesSubassetCategory = matchesMultiFilter(subassetCategory, normalizedSubassetCategoryFilters)
     const matchesSubasset = matchesMultiFilter(subasset, normalizedSubassetFilters)
     const matchesTags =
       normalizedTagFilters.length === 0 || normalizedTagFilters.some((selectedTag) => rowTags.includes(selectedTag))
 
-    return matchesSearch && matchesType && matchesCurrency && matchesSubassetCategory && matchesSubasset && matchesTags
+    return matchesSearch && matchesType && matchesLiquidity && matchesCurrency && matchesSubassetCategory && matchesSubasset && matchesTags
   })
 }

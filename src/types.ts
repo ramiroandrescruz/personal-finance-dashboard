@@ -58,6 +58,7 @@ export interface AllocationTargets {
 export interface DashboardFilterState {
   searchTerm: string
   typeFilters: HoldingType[]
+  liquidityFilters: LiquidityKind[]
   currencyFilters: string[]
   subassetCategoryFilters: string[]
   subassetFilters: string[]

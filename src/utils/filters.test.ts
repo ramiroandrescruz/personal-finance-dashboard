@@ -35,6 +35,17 @@ const rows: HoldingRow[] = [
     tipo: 'Crypto',
     subactivo: 'USDT',
     liquidity: 'LIQUID'
+  },
+  {
+    id: '4',
+    cuenta: 'Real Estate',
+    moneda: 'USD',
+    monto: 50000,
+    cantidad: null,
+    tags: ['largo plazo'],
+    tipo: 'Properties',
+    subactivo: 'Departamento',
+    liquidity: 'ILLIQUID'
   }
 ]
 
@@ -68,5 +79,15 @@ describe('applyDashboardFilters', () => {
 
     expect(filtered).toHaveLength(1)
     expect(filtered[0]?.id).toBe('3')
+  })
+
+  it('filtra por liquidez', () => {
+    const filtered = applyDashboardFilters(rows, {
+      ...DEFAULT_DASHBOARD_FILTERS,
+      liquidityFilters: ['ILLIQUID']
+    })
+
+    expect(filtered).toHaveLength(1)
+    expect(filtered[0]?.id).toBe('4')
   })
 })

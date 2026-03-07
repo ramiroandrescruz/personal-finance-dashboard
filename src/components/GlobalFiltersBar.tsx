@@ -24,6 +24,7 @@ interface GlobalFiltersBarProps {
 const cloneFilters = (filters: DashboardFilters): DashboardFilters => ({
   searchTerm: filters.searchTerm,
   typeFilters: [...filters.typeFilters],
+  liquidityFilters: [...filters.liquidityFilters],
   currencyFilters: [...filters.currencyFilters],
   subassetCategoryFilters: [...filters.subassetCategoryFilters],
   subassetFilters: [...filters.subassetFilters],
@@ -91,6 +92,7 @@ export const GlobalFiltersBar = ({
     return (
       filters.searchTerm.trim() !== '' ||
       filters.typeFilters.length > 0 ||
+      filters.liquidityFilters.length > 0 ||
       filters.currencyFilters.length > 0 ||
       filters.subassetCategoryFilters.length > 0 ||
       filters.subassetFilters.length > 0 ||
@@ -122,6 +124,18 @@ export const GlobalFiltersBar = ({
         id: `currency-${currency}`,
         label: `Moneda: ${currency}`,
         onRemove: () => onFiltersChange({ ...filters, currencyFilters: filters.currencyFilters.filter((item) => item !== currency) })
+      })
+    })
+
+    filters.liquidityFilters.forEach((liquidity) => {
+      chips.push({
+        id: `liquidity-${liquidity}`,
+        label: `Liquidez: ${liquidity === 'ILLIQUID' ? 'No líquido' : 'Líquido'}`,
+        onRemove: () =>
+          onFiltersChange({
+            ...filters,
+            liquidityFilters: filters.liquidityFilters.filter((item) => item !== liquidity)
+          })
       })
     })
 
@@ -231,6 +245,34 @@ export const GlobalFiltersBar = ({
             {preset.label}
           </AppButton>
         ))}
+        <AppButton
+          tone={filters.liquidityFilters.includes('LIQUID') ? 'secondary' : 'tertiary'}
+          className="filters-preset-button"
+          onClick={() =>
+            onFiltersChange({
+              ...filters,
+              liquidityFilters: filters.liquidityFilters.includes('LIQUID')
+                ? filters.liquidityFilters.filter((item) => item !== 'LIQUID')
+                : [...filters.liquidityFilters, 'LIQUID']
+            })
+          }
+        >
+          Líquido
+        </AppButton>
+        <AppButton
+          tone={filters.liquidityFilters.includes('ILLIQUID') ? 'secondary' : 'tertiary'}
+          className="filters-preset-button"
+          onClick={() =>
+            onFiltersChange({
+              ...filters,
+              liquidityFilters: filters.liquidityFilters.includes('ILLIQUID')
+                ? filters.liquidityFilters.filter((item) => item !== 'ILLIQUID')
+                : [...filters.liquidityFilters, 'ILLIQUID']
+            })
+          }
+        >
+          No líquido
+        </AppButton>
       </div>
 
       <Collapse in={showAdvanced}>

@@ -18,7 +18,7 @@ import { buildDeviationRows } from './utils/allocation'
 import { clampTargetPercent } from './utils/allocationTargets'
 import { aggregateTotals, convertRowToUsd } from './utils/conversion'
 import { applyDashboardFilters, DEFAULT_DASHBOARD_FILTERS, type DashboardFilters } from './utils/filters'
-import { getSnapshotDateKey, rebuildSnapshotsFromMovements } from './utils/snapshots'
+import { buildMovementDateVariations, getSnapshotDateKey, rebuildSnapshotsFromMovements } from './utils/snapshots'
 
 const EMPTY_TOTALS_BY_TYPE: Record<HoldingType, number> = {
   Cash: 0,
@@ -273,6 +273,10 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
     return rebuildSnapshotsFromMovements(snapshots, transactions)
   }, [snapshots, transactions])
 
+  const movementDateVariations = useMemo(() => {
+    return buildMovementDateVariations(transactions, settings, getSnapshotDateKey())
+  }, [settings, transactions])
+
   const liquidityTotals = useMemo(() => {
     return rows.reduce(
       (accumulator, row) => {
@@ -408,6 +412,7 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
           totalUsdOficial={portfolioTotals.usdOficial}
           liquidUsdFinanciero={liquidityTotals.liquidUsdFinanciero}
           illiquidUsdFinanciero={liquidityTotals.illiquidUsdFinanciero}
+          fallbackVariations={movementDateVariations}
           onCaptureSnapshot={handleCaptureSnapshot}
         />
 
