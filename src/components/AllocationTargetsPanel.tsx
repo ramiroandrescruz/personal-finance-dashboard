@@ -41,7 +41,7 @@ export const AllocationTargetsPanel = ({
 }: AllocationTargetsPanelProps) => {
   const threshold = clampTargetPercent(targets.alertThresholdPct)
 
-  const typeRows = buildDeviationRows(byType, targets.byType, threshold)
+  const typeRows = buildDeviationRows(byType, targets.byType, threshold, { onlyWithTarget: true })
   const subassetRows = buildDeviationRows(bySubasset, targets.bySubasset, threshold, { onlyWithTarget: true })
 
   const alerts = summarizeAlerts([...typeRows, ...subassetRows])
@@ -97,7 +97,7 @@ export const AllocationTargetsPanel = ({
       <div className="allocation-grid">
         <article className="allocation-card">
           <h3>Objetivos por Tipo</h3>
-          <p className="muted-text">Suma objetivo: {formatPlainNumber(typeTargetSum)}%</p>
+          <p className="muted-text">Suma objetivo: {formatPlainNumber(typeTargetSum)}% · sin target = sin alerta</p>
 
           <div className="allocation-targets-list">
             {HOLDING_TYPES.map((type) => (
@@ -136,24 +136,30 @@ export const AllocationTargetsPanel = ({
                 </tr>
               </thead>
               <tbody>
-                {typeRows.map((row) => (
-                  <tr key={row.name}>
-                    <td>{row.name}</td>
-                    <td>{formatPlainNumber(row.currentPct)}%</td>
-                    <td>{formatPlainNumber(row.targetPct)}%</td>
-                    <td>
-                      <span
-                        className={`deviation-pill ${row.isAlert ? 'is-alert' : ''} ${
-                          row.deviationPct > 0 ? 'is-positive' : row.deviationPct < 0 ? 'is-negative' : ''
-                        }`}
-                      >
-                        {row.deviationPct > 0 ? '+' : ''}
-                        {formatPlainNumber(row.deviationPct)}%
-                      </span>
-                    </td>
-                    <td>{formatUsd(row.usdValue)}</td>
+                {typeRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={5}>Sin tipos con objetivo definido.</td>
                   </tr>
-                ))}
+                ) : (
+                  typeRows.map((row) => (
+                    <tr key={row.name}>
+                      <td>{row.name}</td>
+                      <td>{formatPlainNumber(row.currentPct)}%</td>
+                      <td>{formatPlainNumber(row.targetPct)}%</td>
+                      <td>
+                        <span
+                          className={`deviation-pill ${row.isAlert ? 'is-alert' : ''} ${
+                            row.deviationPct > 0 ? 'is-positive' : row.deviationPct < 0 ? 'is-negative' : ''
+                          }`}
+                        >
+                          {row.deviationPct > 0 ? '+' : ''}
+                          {formatPlainNumber(row.deviationPct)}%
+                        </span>
+                      </td>
+                      <td>{formatUsd(row.usdValue)}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -162,7 +168,7 @@ export const AllocationTargetsPanel = ({
         <article className="allocation-card">
           <h3>Objetivos por Subactivo</h3>
           <p className="muted-text">
-            Suma objetivo: {formatPlainNumber(subassetTargetSum)}% · opcional (solo alerta si tiene target)
+            Suma objetivo: {formatPlainNumber(subassetTargetSum)}% · opcional (sin target = sin alerta)
           </p>
 
           <div className="allocation-targets-list allocation-targets-list-subasset">

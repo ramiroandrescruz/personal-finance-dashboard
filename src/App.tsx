@@ -294,7 +294,9 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
   const thresholdPct = clampTargetPercent(targets.alertThresholdPct)
 
   const allocationAlerts = useMemo(() => {
-    const typeAlerts = buildDeviationRows(chartsData.byType, targets.byType, thresholdPct)
+    const typeAlerts = buildDeviationRows(chartsData.byType, targets.byType, thresholdPct, {
+      onlyWithTarget: true
+    })
       .filter((row) => row.isAlert)
       .map((row) => ({ ...row, scope: 'Tipo' as const }))
 

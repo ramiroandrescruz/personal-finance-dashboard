@@ -170,6 +170,61 @@ describe('holdingsReducer', () => {
     expect(updated.rows[0]?.liquidity).toBe('LIQUID')
   })
 
+  it('actualiza también el movimiento vinculado en transferencias para campos compartidos', () => {
+    const withTransfers = holdingsReducer(initialState, {
+      type: 'ADD_MOVEMENTS',
+      payload: [
+        {
+          id: 't1',
+          date: '2026-03-05',
+          kind: 'TRANSFER_OUT',
+          cuenta: 'Cuenta A',
+          moneda: 'USD',
+          monto: 100,
+          cantidad: null,
+          tipo: 'Cash',
+          subactivo: 'USD',
+          liquidity: 'LIQUID',
+          tags: [],
+          note: '',
+          createdAt: 1,
+          linkedMovementId: 't2'
+        },
+        {
+          id: 't2',
+          date: '2026-03-05',
+          kind: 'TRANSFER_IN',
+          cuenta: 'Cuenta B',
+          moneda: 'USD',
+          monto: 100,
+          cantidad: null,
+          tipo: 'Cash',
+          subactivo: 'USD',
+          liquidity: 'LIQUID',
+          tags: [],
+          note: '',
+          createdAt: 1,
+          linkedMovementId: 't1'
+        }
+      ]
+    })
+
+    const updated = holdingsReducer(withTransfers, {
+      type: 'UPDATE_MOVEMENT',
+      payload: {
+        id: 't1',
+        patch: {
+          date: '2026-03-10',
+          monto: 200
+        }
+      }
+    })
+
+    expect(updated.transactions.find((item) => item.id === 't1')?.date).toBe('2026-03-10')
+    expect(updated.transactions.find((item) => item.id === 't2')?.date).toBe('2026-03-10')
+    expect(updated.transactions.find((item) => item.id === 't2')?.monto).toBe(200)
+  })
+
   it('edita filas existentes', () => {
     const state = holdingsReducer(initialState, {
       type: 'UPDATE_ROW',

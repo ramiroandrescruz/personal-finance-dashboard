@@ -90,9 +90,56 @@ export const holdingsReducer = (state: HoldingsState, action: HoldingsAction): H
 
     case 'UPDATE_MOVEMENT': {
       let hasChanges = false
+      const source = state.transactions.find((movement) => movement.id === action.payload.id)
+      const linkedId = source?.linkedMovementId
+
+      const hasLinkedSharedPatch = Boolean(
+        linkedId &&
+          (
+            'date' in action.payload.patch ||
+            'moneda' in action.payload.patch ||
+            'monto' in action.payload.patch ||
+            'cantidad' in action.payload.patch ||
+            'tipo' in action.payload.patch ||
+            'subactivo' in action.payload.patch ||
+            'liquidity' in action.payload.patch ||
+            'tags' in action.payload.patch ||
+            'note' in action.payload.patch ||
+            'valuationDate' in action.payload.patch ||
+            'valuationCurrency' in action.payload.patch ||
+            'valuationSource' in action.payload.patch
+          )
+      )
+
+      const linkedPatch: Partial<Omit<HoldingMovement, 'id'>> = hasLinkedSharedPatch
+        ? {
+            ...(('date' in action.payload.patch ? { date: action.payload.patch.date } : {}) as Partial<Omit<HoldingMovement, 'id'>>),
+            ...(('moneda' in action.payload.patch ? { moneda: action.payload.patch.moneda } : {}) as Partial<Omit<HoldingMovement, 'id'>>),
+            ...(('monto' in action.payload.patch ? { monto: action.payload.patch.monto } : {}) as Partial<Omit<HoldingMovement, 'id'>>),
+            ...(('cantidad' in action.payload.patch ? { cantidad: action.payload.patch.cantidad } : {}) as Partial<Omit<HoldingMovement, 'id'>>),
+            ...(('tipo' in action.payload.patch ? { tipo: action.payload.patch.tipo } : {}) as Partial<Omit<HoldingMovement, 'id'>>),
+            ...(('subactivo' in action.payload.patch ? { subactivo: action.payload.patch.subactivo } : {}) as Partial<Omit<HoldingMovement, 'id'>>),
+            ...(('liquidity' in action.payload.patch ? { liquidity: action.payload.patch.liquidity } : {}) as Partial<Omit<HoldingMovement, 'id'>>),
+            ...(('tags' in action.payload.patch ? { tags: action.payload.patch.tags } : {}) as Partial<Omit<HoldingMovement, 'id'>>),
+            ...(('note' in action.payload.patch ? { note: action.payload.patch.note } : {}) as Partial<Omit<HoldingMovement, 'id'>>),
+            ...(('valuationDate' in action.payload.patch ? { valuationDate: action.payload.patch.valuationDate } : {}) as Partial<Omit<HoldingMovement, 'id'>>),
+            ...(('valuationCurrency' in action.payload.patch
+              ? { valuationCurrency: action.payload.patch.valuationCurrency }
+              : {}) as Partial<Omit<HoldingMovement, 'id'>>),
+            ...(('valuationSource' in action.payload.patch ? { valuationSource: action.payload.patch.valuationSource } : {}) as Partial<Omit<HoldingMovement, 'id'>>)
+          }
+        : {}
 
       const nextTransactions = state.transactions.map((movement) => {
         if (movement.id !== action.payload.id) {
+          if (linkedId && movement.id === linkedId && hasLinkedSharedPatch) {
+            hasChanges = true
+            return normalizeMovement({
+              ...movement,
+              ...linkedPatch
+            })
+          }
+
           return movement
         }
 

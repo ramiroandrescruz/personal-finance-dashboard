@@ -1,6 +1,6 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { ActionIcon, Menu, Modal, NativeSelect, TextInput } from '@mantine/core'
-import { HOLDING_TYPES, LIQUIDITY_KINDS } from '../types'
+import { HOLDING_TYPES, LIQUIDITY_KINDS, MOVEMENT_KINDS } from '../types'
 import type { HoldingMovement, HoldingType, LiquidityKind } from '../types'
 import type { ConversionDraft, MovementDraft, TransferCreateResult, TransferDraft } from '../hooks/useHoldingsStore'
 import { formatPlainNumber, formatQuantity, parseAmountInput } from '../utils/number'
@@ -44,6 +44,24 @@ interface MovementFormState {
   liquidityTo: LiquidityKind
   subactivo: string
   subactivoTo: string
+  tags: string
+  note: string
+  valuationDate: string
+  valuationCurrency: string
+  valuationSource: string
+}
+
+interface EditMovementFormState {
+  id: string
+  date: string
+  kind: HoldingMovement['kind']
+  cuenta: string
+  moneda: string
+  monto: string
+  cantidad: string
+  tipo: HoldingType
+  subactivo: string
+  liquidity: LiquidityKind
   tags: string
   note: string
   valuationDate: string
@@ -95,6 +113,8 @@ export const MovementsSection = ({
 }: MovementsSectionProps) => {
   const [form, setForm] = useState<MovementFormState>(emptyForm)
   const [error, setError] = useState<string | null>(null)
+  const [editingMovement, setEditingMovement] = useState<EditMovementFormState | null>(null)
+  const [editError, setEditError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isCreateOpen) {
@@ -318,6 +338,144 @@ export const MovementsSection = ({
     onCloseCreate()
   }
 
+  const openEditMovement = (movement: HoldingMovement) => {
+    setEditingMovement({
+      id: movement.id,
+      date: movement.date,
+      kind: movement.kind,
+      cuenta: movement.cuenta,
+      moneda: movement.moneda,
+      monto: String(movement.monto),
+      cantidad: movement.cantidad === null ? '' : String(movement.cantidad),
+      tipo: movement.tipo,
+      subactivo: movement.subactivo,
+      liquidity: movement.liquidity,
+      tags: formatTags(movement.tags),
+      note: movement.note,
+      valuationDate: movement.valuationDate ?? movement.date,
+      valuationCurrency: movement.valuationCurrency ?? movement.moneda,
+      valuationSource: movement.valuationSource ?? ''
+    })
+    setEditError(null)
+  }
+
+  const closeEditMovement = () => {
+    setEditingMovement(null)
+    setEditError(null)
+  }
+
+  const handleEditSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    if (!editingMovement) {
+      return
+    }
+
+    setEditError(null)
+
+    const cuenta = editingMovement.cuenta.trim()
+    const moneda = editingMovement.moneda.trim().toUpperCase()
+    const subactivo = editingMovement.subactivo.trim().toUpperCase()
+    const parsedAmount = parseAmountInput(editingMovement.monto)
+    const parsedQuantity = editingMovement.cantidad.trim() ? parseAmountInput(editingMovement.cantidad) : null
+    const tags = parseTagsInput(editingMovement.tags)
+    const note = editingMovement.note.trim()
+    const valuationDate = editingMovement.valuationDate.trim()
+    const valuationCurrency = editingMovement.valuationCurrency.trim().toUpperCase()
+    const valuationSource = editingMovement.valuationSource.trim()
+
+    if (!cuenta) {
+      setEditError('La cuenta es obligatoria.')
+      return
+    }
+
+    if (!moneda) {
+      setEditError('La moneda es obligatoria.')
+      return
+    }
+
+    if (!subactivo) {
+      setEditError('El subactivo es obligatorio.')
+      return
+    }
+
+    if (!MOVEMENT_KINDS.includes(editingMovement.kind)) {
+      setEditError('Movimiento inválido.')
+      return
+    }
+
+    if (!HOLDING_TYPES.includes(editingMovement.tipo)) {
+      setEditError('Tipo inválido.')
+      return
+    }
+
+    if (!LIQUIDITY_KINDS.includes(editingMovement.liquidity)) {
+      setEditError('Liquidez inválida.')
+      return
+    }
+
+    if (parsedAmount === null) {
+      setEditError('El monto debe ser numérico.')
+      return
+    }
+
+    if (editingMovement.kind === 'REVALUATION' && parsedAmount === 0) {
+      setEditError('La revalorización no puede ser 0.')
+      return
+    }
+
+    if (editingMovement.kind !== 'REVALUATION' && parsedAmount <= 0) {
+      setEditError('El monto debe ser mayor a 0.')
+      return
+    }
+
+    if (parsedQuantity !== null && parsedQuantity < 0) {
+      setEditError('La cantidad no puede ser negativa.')
+      return
+    }
+
+    if (editingMovement.cantidad.trim() && parsedQuantity === null) {
+      setEditError('Cantidad inválida.')
+      return
+    }
+
+    if (editingMovement.kind === 'REVALUATION') {
+      if (!valuationDate) {
+        setEditError('La fecha de valuación es obligatoria para revalorizaciones.')
+        return
+      }
+
+      if (!valuationCurrency) {
+        setEditError('La moneda de valuación es obligatoria para revalorizaciones.')
+        return
+      }
+
+      if (!valuationSource) {
+        setEditError('La fuente/método de valuación es obligatoria para revalorizaciones.')
+        return
+      }
+    }
+
+    onUpdateMovement(editingMovement.id, {
+      date: editingMovement.date,
+      kind: editingMovement.kind,
+      cuenta,
+      moneda,
+      monto: parsedAmount,
+      cantidad: parsedQuantity,
+      tipo: editingMovement.tipo,
+      subactivo,
+      liquidity: editingMovement.liquidity,
+      tags,
+      note,
+      valuationDate: editingMovement.kind === 'REVALUATION' ? valuationDate : undefined,
+      valuationCurrency: editingMovement.kind === 'REVALUATION' ? valuationCurrency : undefined,
+      valuationSource: editingMovement.kind === 'REVALUATION' ? valuationSource : undefined
+    })
+
+    closeEditMovement()
+  }
+
   return (
     <section className="table-section" aria-label="Movimientos">
       <div className="table-toolbar movements-toolbar">
@@ -379,6 +537,7 @@ export const MovementsSection = ({
                       </ActionIcon>
                     </Menu.Target>
                     <Menu.Dropdown>
+                      <Menu.Item onClick={() => openEditMovement(movement)}>Editar</Menu.Item>
                       <Menu.Item
                         onClick={() => {
                           onUpdateMovement(movement.id, {
@@ -764,6 +923,158 @@ export const MovementsSection = ({
             </AppButton>
           </div>
         </form>
+      </Modal>
+
+      <Modal opened={editingMovement !== null} onClose={closeEditMovement} title="Editar movimiento" centered>
+        {editingMovement ? (
+          <form className="form-grid" onSubmit={handleEditSubmit}>
+            <TextInput
+              label="Fecha"
+              type="date"
+              value={editingMovement.date}
+              onChange={(event) => setEditingMovement((previous) => (previous ? { ...previous, date: event.target.value } : previous))}
+              required
+            />
+
+            <NativeSelect
+              label="Movimiento"
+              value={editingMovement.kind}
+              onChange={(event) =>
+                setEditingMovement((previous) => (previous ? { ...previous, kind: event.target.value as HoldingMovement['kind'] } : previous))
+              }
+              data={MOVEMENT_KINDS.map((kind) => ({ value: kind, label: movementKindToLabel(kind) }))}
+            />
+
+            <TextInput
+              label="Cuenta"
+              list={accountListId}
+              value={editingMovement.cuenta}
+              onChange={(event) => setEditingMovement((previous) => (previous ? { ...previous, cuenta: event.target.value } : previous))}
+              required
+            />
+
+            <TextInput
+              label="Moneda"
+              list={currencyListId}
+              value={editingMovement.moneda}
+              onChange={(event) =>
+                setEditingMovement((previous) =>
+                  previous ? { ...previous, moneda: event.target.value, valuationCurrency: event.target.value || previous.valuationCurrency } : previous
+                )
+              }
+              required
+            />
+
+            <TextInput
+              label="Monto"
+              inputMode="decimal"
+              value={editingMovement.monto}
+              onChange={(event) => setEditingMovement((previous) => (previous ? { ...previous, monto: event.target.value } : previous))}
+              required
+            />
+
+            <TextInput
+              label="Cantidad (opcional)"
+              inputMode="decimal"
+              value={editingMovement.cantidad}
+              onChange={(event) => setEditingMovement((previous) => (previous ? { ...previous, cantidad: event.target.value } : previous))}
+              placeholder="Ej: 0.52 BTC o 20 shares"
+            />
+
+            <NativeSelect
+              label="Tipo"
+              value={editingMovement.tipo}
+              onChange={(event) =>
+                setEditingMovement((previous) => {
+                  if (!previous) {
+                    return previous
+                  }
+                  const nextType = event.target.value as HoldingType
+                  return {
+                    ...previous,
+                    tipo: nextType,
+                    liquidity: nextType === 'Properties' ? 'ILLIQUID' : previous.liquidity
+                  }
+                })
+              }
+              data={HOLDING_TYPES.map((type) => ({ value: type, label: type }))}
+            />
+
+            <TextInput
+              label="Subactivo"
+              list={subassetListId}
+              value={editingMovement.subactivo}
+              onChange={(event) => setEditingMovement((previous) => (previous ? { ...previous, subactivo: event.target.value } : previous))}
+              required
+            />
+
+            <NativeSelect
+              label="Liquidez"
+              value={editingMovement.liquidity}
+              onChange={(event) =>
+                setEditingMovement((previous) => (previous ? { ...previous, liquidity: event.target.value as LiquidityKind } : previous))
+              }
+              data={[
+                { value: 'LIQUID', label: 'Líquido' },
+                { value: 'ILLIQUID', label: 'Ilíquido' }
+              ]}
+            />
+
+            {editingMovement.kind === 'REVALUATION' ? (
+              <>
+                <TextInput
+                  label="Fecha de valuación"
+                  type="date"
+                  value={editingMovement.valuationDate}
+                  onChange={(event) =>
+                    setEditingMovement((previous) => (previous ? { ...previous, valuationDate: event.target.value } : previous))
+                  }
+                />
+                <TextInput
+                  label="Moneda de valuación"
+                  value={editingMovement.valuationCurrency}
+                  onChange={(event) =>
+                    setEditingMovement((previous) => (previous ? { ...previous, valuationCurrency: event.target.value } : previous))
+                  }
+                  placeholder="USD"
+                />
+                <TextInput
+                  label="Fuente/Método valuación"
+                  value={editingMovement.valuationSource}
+                  onChange={(event) =>
+                    setEditingMovement((previous) => (previous ? { ...previous, valuationSource: event.target.value } : previous))
+                  }
+                  placeholder="Tasación inmobiliaria"
+                />
+              </>
+            ) : null}
+
+            <TextInput
+              label="Tags (coma)"
+              value={editingMovement.tags}
+              onChange={(event) => setEditingMovement((previous) => (previous ? { ...previous, tags: event.target.value } : previous))}
+              placeholder="largo plazo, liquidez"
+            />
+
+            <TextInput
+              label="Nota"
+              value={editingMovement.note}
+              onChange={(event) => setEditingMovement((previous) => (previous ? { ...previous, note: event.target.value } : previous))}
+              placeholder="Detalle de operación"
+            />
+
+            {editError ? <p className="error-text">{editError}</p> : null}
+
+            <div className="modal-actions">
+              <AppButton type="button" tone="tertiary" onClick={closeEditMovement}>
+                Cancelar
+              </AppButton>
+              <AppButton type="submit" tone="primary">
+                Guardar cambios
+              </AppButton>
+            </div>
+          </form>
+        ) : null}
       </Modal>
     </section>
   )
