@@ -15,7 +15,8 @@ const baseRow: HoldingRow = {
   cantidad: null,
   tags: [],
   tipo: 'Cash',
-  subactivo: 'ARS'
+  subactivo: 'ARS',
+  liquidity: 'LIQUID'
 }
 
 describe('convertRowToUsd', () => {

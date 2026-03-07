@@ -9,6 +9,8 @@ interface SnapshotHistorySectionProps {
   snapshots: PortfolioSnapshot[]
   totalUsdFinanciero: number
   totalUsdOficial: number
+  liquidUsdFinanciero: number
+  illiquidUsdFinanciero: number
   onCaptureSnapshot: () => void
 }
 
@@ -57,7 +59,14 @@ const PERIOD_HELPERS: Record<'daily' | 'weekly' | 'monthly', string> = {
   monthly: 'Se requieren snapshots separados por 30 días para variación mensual.'
 }
 
-export const SnapshotHistorySection = ({ snapshots, totalUsdFinanciero, totalUsdOficial, onCaptureSnapshot }: SnapshotHistorySectionProps) => {
+export const SnapshotHistorySection = ({
+  snapshots,
+  totalUsdFinanciero,
+  totalUsdOficial,
+  liquidUsdFinanciero,
+  illiquidUsdFinanciero,
+  onCaptureSnapshot
+}: SnapshotHistorySectionProps) => {
   const sortedSnapshots = useMemo(() => {
     return [...snapshots].sort((left, right) => left.date.localeCompare(right.date))
   }, [snapshots])
@@ -101,6 +110,8 @@ export const SnapshotHistorySection = ({ snapshots, totalUsdFinanciero, totalUsd
           <p className="hero-kpi-value">{formatUsd(totalUsdFinanciero)}</p>
           <p className="hero-kpi-secondary">USD financiero</p>
           <p className="hero-kpi-subvalue">Oficial: {formatUsd(totalUsdOficial)}</p>
+          <p className="hero-kpi-subvalue">Líquido: {formatUsd(liquidUsdFinanciero)}</p>
+          <p className="hero-kpi-subvalue">Ilíquido: {formatUsd(illiquidUsdFinanciero)}</p>
         </article>
 
         <article className="hero-kpi-card hero-kpi-cta-card">

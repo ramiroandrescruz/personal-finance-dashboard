@@ -10,7 +10,8 @@ const baseRow: HoldingRow = {
   cantidad: null,
   tags: [],
   tipo: 'Cash',
-  subactivo: 'USD'
+  subactivo: 'USD',
+  liquidity: 'LIQUID'
 }
 
 describe('getSubassetCategory', () => {
@@ -26,5 +27,9 @@ describe('getSubassetCategory', () => {
 
   it('usa Stock para investments no ETF', () => {
     expect(getSubassetCategory({ ...baseRow, tipo: 'Investments', subactivo: 'NVDA' })).toBe('Stock')
+  })
+
+  it('detecta propiedades', () => {
+    expect(getSubassetCategory({ ...baseRow, tipo: 'Properties', subactivo: 'DEPARTAMENTO' })).toBe('Property')
   })
 })

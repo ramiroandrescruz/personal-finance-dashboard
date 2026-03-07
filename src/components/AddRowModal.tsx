@@ -1,6 +1,6 @@
 import { type FormEvent, useEffect, useState } from 'react'
-import { HOLDING_TYPES } from '../types'
-import type { HoldingRow, HoldingType } from '../types'
+import { HOLDING_TYPES, LIQUIDITY_KINDS } from '../types'
+import type { HoldingRow, HoldingType, LiquidityKind } from '../types'
 import { parseAmountInput } from '../utils/number'
 import { parseTagsInput } from '../utils/tags'
 import { AppButton } from './ui/AppButton'
@@ -16,11 +16,12 @@ interface AddRowModalProps {
 
 const NEW_OPTION_VALUE = '__NEW__'
 
-const initialDraft: { monto: string; cantidad: string; tags: string; tipo: HoldingType } = {
+const initialDraft: { monto: string; cantidad: string; tags: string; tipo: HoldingType; liquidity: LiquidityKind } = {
   monto: '0',
   cantidad: '',
   tags: '',
-  tipo: 'Cash'
+  tipo: 'Cash',
+  liquidity: 'LIQUID'
 }
 
 const getInitialSelectValue = (options: string[]): string => {
@@ -110,6 +111,11 @@ export const AddRowModal = ({
       return
     }
 
+    if (!LIQUIDITY_KINDS.includes(draft.liquidity)) {
+      setError('Liquidez inválida.')
+      return
+    }
+
     if (parsedAmount === null) {
       setError('El monto debe ser numérico.')
       return
@@ -137,7 +143,8 @@ export const AddRowModal = ({
       cantidad: parsedQuantity,
       tags: parsedTags,
       tipo: draft.tipo,
-      subactivo
+      subactivo,
+      liquidity: draft.liquidity
     })
 
     onClose()
@@ -217,7 +224,17 @@ export const AddRowModal = ({
           <select
             id="add-tipo"
             value={draft.tipo}
-            onChange={(event) => setDraft((previous) => ({ ...previous, tipo: event.target.value as HoldingType }))}
+            onChange={(event) =>
+              setDraft((previous) => {
+                const nextType = event.target.value as HoldingType
+
+                return {
+                  ...previous,
+                  tipo: nextType,
+                  liquidity: nextType === 'Properties' ? 'ILLIQUID' : previous.liquidity
+                }
+              })
+            }
             required
           >
             {HOLDING_TYPES.map((type) => (
@@ -225,6 +242,17 @@ export const AddRowModal = ({
                 {type}
               </option>
             ))}
+          </select>
+
+          <label htmlFor="add-liquidity">Liquidez</label>
+          <select
+            id="add-liquidity"
+            value={draft.liquidity}
+            onChange={(event) => setDraft((previous) => ({ ...previous, liquidity: event.target.value as LiquidityKind }))}
+            required
+          >
+            <option value="LIQUID">Líquido</option>
+            <option value="ILLIQUID">Ilíquido</option>
           </select>
 
           <label htmlFor="add-subactivo-select">Subactivo</label>

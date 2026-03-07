@@ -24,6 +24,7 @@ const EMPTY_TOTALS_BY_TYPE: Record<HoldingType, number> = {
   Cash: 0,
   Investments: 0,
   Crypto: 0,
+  Properties: 0,
   Other: 0
 }
 
@@ -267,6 +268,24 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
     )
   }, [rows, settings])
 
+  const liquidityTotals = useMemo(() => {
+    return rows.reduce(
+      (accumulator, row) => {
+        const conversion = convertRowToUsd(row, settings)
+        if (row.liquidity === 'ILLIQUID') {
+          accumulator.illiquidUsdFinanciero += conversion.usdFinanciero
+        } else {
+          accumulator.liquidUsdFinanciero += conversion.usdFinanciero
+        }
+        return accumulator
+      },
+      {
+        liquidUsdFinanciero: 0,
+        illiquidUsdFinanciero: 0
+      }
+    )
+  }, [rows, settings])
+
   const thresholdPct = clampTargetPercent(targets.alertThresholdPct)
 
   const allocationAlerts = useMemo(() => {
@@ -380,6 +399,8 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
           snapshots={snapshots}
           totalUsdFinanciero={portfolioTotals.usdFinanciero}
           totalUsdOficial={portfolioTotals.usdOficial}
+          liquidUsdFinanciero={liquidityTotals.liquidUsdFinanciero}
+          illiquidUsdFinanciero={liquidityTotals.illiquidUsdFinanciero}
           onCaptureSnapshot={handleCaptureSnapshot}
         />
 

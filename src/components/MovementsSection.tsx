@@ -1,7 +1,7 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { ActionIcon, Menu, Modal, NativeSelect, TextInput } from '@mantine/core'
-import { HOLDING_TYPES } from '../types'
-import type { HoldingMovement, HoldingType } from '../types'
+import { HOLDING_TYPES, LIQUIDITY_KINDS } from '../types'
+import type { HoldingMovement, HoldingType, LiquidityKind } from '../types'
 import type { ConversionDraft, MovementDraft, TransferCreateResult, TransferDraft } from '../hooks/useHoldingsStore'
 import { formatPlainNumber, formatQuantity, parseAmountInput } from '../utils/number'
 import { formatTags, parseTagsInput } from '../utils/tags'
@@ -31,18 +31,23 @@ interface MovementsSectionProps {
 interface MovementFormState {
   mode: ModalMode
   date: string
-  kind: 'OPENING' | 'IN' | 'OUT'
+  kind: 'OPENING' | 'IN' | 'OUT' | 'REVALUATION'
   cuenta: string
   cuentaTo: string
   moneda: string
   monto: string
   cantidad: string
   tipo: HoldingType
+  liquidity: LiquidityKind
   tipoTo: HoldingType
+  liquidityTo: LiquidityKind
   subactivo: string
   subactivoTo: string
   tags: string
   note: string
+  valuationDate: string
+  valuationCurrency: string
+  valuationSource: string
 }
 
 const emptyForm = (): MovementFormState => ({
@@ -55,11 +60,16 @@ const emptyForm = (): MovementFormState => ({
   monto: '',
   cantidad: '',
   tipo: 'Cash',
+  liquidity: 'LIQUID',
   tipoTo: 'Crypto',
+  liquidityTo: 'ILLIQUID',
   subactivo: '',
   subactivoTo: '',
   tags: '',
-  note: ''
+  note: '',
+  valuationDate: createMovementDraftDefaults().date,
+  valuationCurrency: 'USD',
+  valuationSource: ''
 })
 
 const createDatalistId = (suffix: string): string => `movement-${suffix}-options`
@@ -96,7 +106,12 @@ export const MovementsSection = ({
       subactivo: previous.subactivo || subassetOptions[0] || '',
       subactivoTo: previous.subactivoTo || subassetOptions[0] || '',
       tipo: previous.tipo,
-      tipoTo: previous.tipoTo
+      liquidity: previous.liquidity,
+      tipoTo: previous.tipoTo,
+      liquidityTo: previous.liquidityTo,
+      valuationDate: previous.valuationDate || previous.date || createMovementDraftDefaults().date,
+      valuationCurrency: previous.valuationCurrency || previous.moneda || 'USD',
+      valuationSource: previous.valuationSource
     }))
     setError(null)
   }, [accountOptions, currencyOptions, isCreateOpen, subassetOptions])
@@ -125,6 +140,9 @@ export const MovementsSection = ({
     const moneda = form.moneda.trim().toUpperCase()
     const subactivo = form.subactivo.trim().toUpperCase()
     const subactivoTo = form.subactivoTo.trim().toUpperCase()
+    const valuationDate = form.valuationDate.trim()
+    const valuationCurrency = form.valuationCurrency.trim().toUpperCase()
+    const valuationSource = form.valuationSource.trim()
     const parsedAmount = parseAmountInput(form.monto)
     const parsedQuantity = form.cantidad.trim() ? parseAmountInput(form.cantidad) : null
 
@@ -148,13 +166,50 @@ export const MovementsSection = ({
       return
     }
 
+    if (!LIQUIDITY_KINDS.includes(form.liquidity)) {
+      setError('Liquidez inválida.')
+      return
+    }
+
     if (form.mode === 'conversion' && !HOLDING_TYPES.includes(form.tipoTo)) {
       setError('Tipo destino inválido.')
       return
     }
 
-    if (parsedAmount === null || parsedAmount <= 0) {
-      setError('El monto debe ser numérico y mayor a 0.')
+    if (form.mode === 'conversion' && !LIQUIDITY_KINDS.includes(form.liquidityTo)) {
+      setError('Liquidez destino inválida.')
+      return
+    }
+
+    if (parsedAmount === null) {
+      setError('El monto debe ser numérico.')
+      return
+    }
+
+    if (form.mode === 'movement' && form.kind === 'REVALUATION' && parsedAmount === 0) {
+      setError('La revalorización no puede ser 0.')
+      return
+    }
+
+    if (form.mode === 'movement' && form.kind === 'REVALUATION') {
+      if (!valuationDate) {
+        setError('La fecha de valuación es obligatoria para revalorizaciones.')
+        return
+      }
+
+      if (!valuationCurrency) {
+        setError('La moneda de valuación es obligatoria para revalorizaciones.')
+        return
+      }
+
+      if (!valuationSource) {
+        setError('La fuente/método de valuación es obligatoria para revalorizaciones.')
+        return
+      }
+    }
+
+    if (!(form.mode === 'movement' && form.kind === 'REVALUATION') && parsedAmount <= 0) {
+      setError('El monto debe ser mayor a 0.')
       return
     }
 
@@ -190,7 +245,8 @@ export const MovementsSection = ({
         monto: parsedAmount,
         cantidad: parsedQuantity,
         tipo: form.tipo,
-        subactivo: form.subactivo,
+        subactivo,
+        liquidity: form.liquidity,
         tags,
         note
       })
@@ -224,8 +280,10 @@ export const MovementsSection = ({
         cantidad: parsedQuantity,
         tipoFrom: form.tipo,
         subactivoFrom: subactivo,
+        liquidityFrom: form.liquidity,
         tipoTo: form.tipoTo,
         subactivoTo,
+        liquidityTo: form.liquidityTo,
         tags,
         note
       })
@@ -248,8 +306,12 @@ export const MovementsSection = ({
       cantidad: parsedQuantity,
       tipo: form.tipo,
       subactivo,
+      liquidity: form.liquidity,
       tags,
-      note
+      note,
+      valuationDate: form.kind === 'REVALUATION' ? valuationDate : undefined,
+      valuationCurrency: form.kind === 'REVALUATION' ? valuationCurrency : undefined,
+      valuationSource: form.kind === 'REVALUATION' ? valuationSource : undefined
     })
     onCloseCreate()
   }
@@ -287,6 +349,7 @@ export const MovementsSection = ({
               <th className="numeric-col">Cantidad</th>
               <th>Tipo</th>
               <th>Subactivo</th>
+              <th>Liquidez</th>
               <th>Tags</th>
               <th>Nota</th>
               <th>Acciones</th>
@@ -303,6 +366,7 @@ export const MovementsSection = ({
                 <td className="numeric-col">{movement.cantidad === null ? '—' : formatQuantity(movement.cantidad)}</td>
                 <td>{movement.tipo}</td>
                 <td>{movement.subactivo}</td>
+                <td>{movement.liquidity === 'ILLIQUID' ? 'Ilíquido' : 'Líquido'}</td>
                 <td>{movement.tags.length === 0 ? '—' : formatTags(movement.tags)}</td>
                 <td>{movement.note || '—'}</td>
                 <td>
@@ -330,7 +394,7 @@ export const MovementsSection = ({
             ))}
             {orderedMovements.length === 0 ? (
               <tr>
-                <td colSpan={11}>
+                <td colSpan={12}>
                   <p className="empty-state">Todavía no hay movimientos cargados.</p>
                 </td>
               </tr>
@@ -383,7 +447,8 @@ export const MovementsSection = ({
               data={[
                 { value: 'IN', label: 'Entrada' },
                 { value: 'OUT', label: 'Salida' },
-                { value: 'OPENING', label: 'Apertura inicial' }
+                { value: 'OPENING', label: 'Apertura inicial' },
+                { value: 'REVALUATION', label: 'Revalorización (+/-)' }
               ]}
             />
           ) : null}
@@ -425,7 +490,13 @@ export const MovementsSection = ({
             label="Moneda"
             list={currencyListId}
             value={form.moneda}
-            onChange={(event) => setForm((previous) => ({ ...previous, moneda: event.target.value }))}
+            onChange={(event) =>
+              setForm((previous) => ({
+                ...previous,
+                moneda: event.target.value,
+                valuationCurrency: event.target.value || previous.valuationCurrency
+              }))
+            }
             required
           />
           <datalist id={currencyListId}>
@@ -458,7 +529,16 @@ export const MovementsSection = ({
                 id="movement-type"
                 label="Tipo"
                 value={form.tipo}
-                onChange={(event) => setForm((previous) => ({ ...previous, tipo: event.target.value as HoldingType }))}
+                onChange={(event) =>
+                  setForm((previous) => {
+                    const nextType = event.target.value as HoldingType
+                    return {
+                      ...previous,
+                      tipo: nextType,
+                      liquidity: nextType === 'Properties' ? 'ILLIQUID' : previous.liquidity
+                    }
+                  })
+                }
                 data={HOLDING_TYPES.map((type) => ({ value: type, label: type }))}
               />
 
@@ -470,11 +550,50 @@ export const MovementsSection = ({
                 onChange={(event) => setForm((previous) => ({ ...previous, subactivo: event.target.value }))}
                 required
               />
+
+              <NativeSelect
+                id="movement-liquidity"
+                label="Liquidez"
+                value={form.liquidity}
+                onChange={(event) => setForm((previous) => ({ ...previous, liquidity: event.target.value as LiquidityKind }))}
+                data={[
+                  { value: 'LIQUID', label: 'Líquido' },
+                  { value: 'ILLIQUID', label: 'Ilíquido' }
+                ]}
+              />
               <datalist id={subassetListId}>
                 {subassetOptions.map((option) => (
                   <option key={option} value={option} />
                 ))}
               </datalist>
+
+              {form.kind === 'REVALUATION' ? (
+                <>
+                  <TextInput
+                    id="valuation-date"
+                    label="Fecha de valuación"
+                    type="date"
+                    value={form.valuationDate}
+                    onChange={(event) => setForm((previous) => ({ ...previous, valuationDate: event.target.value }))}
+                  />
+
+                  <TextInput
+                    id="valuation-currency"
+                    label="Moneda de valuación"
+                    value={form.valuationCurrency}
+                    onChange={(event) => setForm((previous) => ({ ...previous, valuationCurrency: event.target.value }))}
+                    placeholder="USD"
+                  />
+
+                  <TextInput
+                    id="valuation-source"
+                    label="Fuente/Método valuación"
+                    value={form.valuationSource}
+                    onChange={(event) => setForm((previous) => ({ ...previous, valuationSource: event.target.value }))}
+                    placeholder="Tasación inmobiliaria"
+                  />
+                </>
+              ) : null}
             </>
           )}
 
@@ -484,7 +603,16 @@ export const MovementsSection = ({
                 id="transfer-type"
                 label="Tipo de activo a transferir"
                 value={form.tipo}
-                onChange={(event) => setForm((previous) => ({ ...previous, tipo: event.target.value as HoldingType }))}
+                onChange={(event) =>
+                  setForm((previous) => {
+                    const nextType = event.target.value as HoldingType
+                    return {
+                      ...previous,
+                      tipo: nextType,
+                      liquidity: nextType === 'Properties' ? 'ILLIQUID' : previous.liquidity
+                    }
+                  })
+                }
                 data={HOLDING_TYPES.map((type) => ({ value: type, label: type }))}
               />
 
@@ -495,6 +623,16 @@ export const MovementsSection = ({
                 value={form.subactivo}
                 onChange={(event) => setForm((previous) => ({ ...previous, subactivo: event.target.value }))}
                 required
+              />
+              <NativeSelect
+                id="transfer-liquidity"
+                label="Liquidez del activo"
+                value={form.liquidity}
+                onChange={(event) => setForm((previous) => ({ ...previous, liquidity: event.target.value as LiquidityKind }))}
+                data={[
+                  { value: 'LIQUID', label: 'Líquido' },
+                  { value: 'ILLIQUID', label: 'Ilíquido' }
+                ]}
               />
               <datalist id={subassetListId}>
                 {subassetOptions.map((option) => (
@@ -510,7 +648,16 @@ export const MovementsSection = ({
                 id="conversion-type-from"
                 label="Tipo origen"
                 value={form.tipo}
-                onChange={(event) => setForm((previous) => ({ ...previous, tipo: event.target.value as HoldingType }))}
+                onChange={(event) =>
+                  setForm((previous) => {
+                    const nextType = event.target.value as HoldingType
+                    return {
+                      ...previous,
+                      tipo: nextType,
+                      liquidity: nextType === 'Properties' ? 'ILLIQUID' : previous.liquidity
+                    }
+                  })
+                }
                 data={HOLDING_TYPES.map((type) => ({ value: type, label: type }))}
               />
 
@@ -524,10 +671,30 @@ export const MovementsSection = ({
               />
 
               <NativeSelect
+                id="conversion-liquidity-from"
+                label="Liquidez origen"
+                value={form.liquidity}
+                onChange={(event) => setForm((previous) => ({ ...previous, liquidity: event.target.value as LiquidityKind }))}
+                data={[
+                  { value: 'LIQUID', label: 'Líquido' },
+                  { value: 'ILLIQUID', label: 'Ilíquido' }
+                ]}
+              />
+
+              <NativeSelect
                 id="conversion-type-to"
                 label="Tipo destino"
                 value={form.tipoTo}
-                onChange={(event) => setForm((previous) => ({ ...previous, tipoTo: event.target.value as HoldingType }))}
+                onChange={(event) =>
+                  setForm((previous) => {
+                    const nextType = event.target.value as HoldingType
+                    return {
+                      ...previous,
+                      tipoTo: nextType,
+                      liquidityTo: nextType === 'Properties' ? 'ILLIQUID' : previous.liquidityTo
+                    }
+                  })
+                }
                 data={HOLDING_TYPES.map((type) => ({ value: type, label: type }))}
               />
 
@@ -538,6 +705,17 @@ export const MovementsSection = ({
                 value={form.subactivoTo}
                 onChange={(event) => setForm((previous) => ({ ...previous, subactivoTo: event.target.value }))}
                 required
+              />
+
+              <NativeSelect
+                id="conversion-liquidity-to"
+                label="Liquidez destino"
+                value={form.liquidityTo}
+                onChange={(event) => setForm((previous) => ({ ...previous, liquidityTo: event.target.value as LiquidityKind }))}
+                data={[
+                  { value: 'LIQUID', label: 'Líquido' },
+                  { value: 'ILLIQUID', label: 'Ilíquido' }
+                ]}
               />
 
               <datalist id={subassetListId}>

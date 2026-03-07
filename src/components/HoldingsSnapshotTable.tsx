@@ -3,7 +3,7 @@ import type { HoldingRow, Settings } from '../types'
 import { convertRowToUsd } from '../utils/conversion'
 import { formatPlainNumber, formatQuantity, formatUsd } from '../utils/number'
 
-type SortColumn = 'cuenta' | 'moneda' | 'monto' | 'cantidad' | 'tipo' | 'usdOficial' | 'usdFinanciero' | 'subactivo'
+type SortColumn = 'cuenta' | 'moneda' | 'monto' | 'cantidad' | 'tipo' | 'usdOficial' | 'usdFinanciero' | 'subactivo' | 'liquidity'
 
 interface SortState {
   column: SortColumn
@@ -60,6 +60,9 @@ export const HoldingsSnapshotTable = ({ rows, settings }: HoldingsSnapshotTableP
           break
         case 'subactivo':
           comparison = stringCompare(left.subactivo, right.subactivo)
+          break
+        case 'liquidity':
+          comparison = stringCompare(left.liquidity, right.liquidity)
           break
         case 'usdOficial':
           comparison = (conversions.get(left.id)?.usdOficial ?? 0) - (conversions.get(right.id)?.usdOficial ?? 0)
@@ -122,6 +125,11 @@ export const HoldingsSnapshotTable = ({ rows, settings }: HoldingsSnapshotTableP
                   Subactivo {sortArrow(sortState, 'subactivo')}
                 </button>
               </th>
+              <th>
+                <button type="button" className="sort-button" onClick={() => handleSort('liquidity')}>
+                  Liquidez {sortArrow(sortState, 'liquidity')}
+                </button>
+              </th>
               <th className="numeric-col">
                 <button type="button" className="sort-button" onClick={() => handleSort('monto')}>
                   Monto {sortArrow(sortState, 'monto')}
@@ -159,6 +167,7 @@ export const HoldingsSnapshotTable = ({ rows, settings }: HoldingsSnapshotTableP
                   <td>{row.cuenta}</td>
                   <td>{row.tipo}</td>
                   <td>{row.subactivo}</td>
+                  <td>{row.liquidity === 'ILLIQUID' ? 'Ilíquido' : 'Líquido'}</td>
                   <td className="numeric-col">{formatPlainNumber(row.monto)}</td>
                   <td className="numeric-col emphasis-col">{formatUsd(conversion?.usdFinanciero ?? 0)}</td>
                   <td className="secondary-col">{row.moneda}</td>
@@ -182,7 +191,7 @@ export const HoldingsSnapshotTable = ({ rows, settings }: HoldingsSnapshotTableP
             })}
             {sortedRows.length === 0 ? (
               <tr>
-                <td colSpan={9}>
+                <td colSpan={10}>
                   <p className="empty-state">No hay posiciones para los filtros actuales.</p>
                 </td>
               </tr>

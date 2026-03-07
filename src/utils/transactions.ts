@@ -1,5 +1,5 @@
 import type { HoldingMovement, HoldingRow, MovementKind } from '../types'
-import { HOLDING_TYPES } from '../types'
+import { HOLDING_TYPES, LIQUIDITY_KINDS } from '../types'
 import { normalizeTags } from './tags'
 
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
@@ -9,6 +9,13 @@ const EPSILON = 0.0000001
 const normalizeCurrency = (currency: string): string => currency.trim().toUpperCase()
 const normalizeSubasset = (subasset: string): string => subasset.trim().toUpperCase()
 const normalizeAccount = (account: string): string => account.trim()
+const normalizeLiquidity = (liquidity: unknown, tipo: HoldingRow['tipo']): HoldingRow['liquidity'] => {
+  if (typeof liquidity === 'string' && LIQUIDITY_KINDS.includes(liquidity as (typeof LIQUIDITY_KINDS)[number])) {
+    return liquidity as HoldingRow['liquidity']
+  }
+
+  return tipo === 'Properties' ? 'ILLIQUID' : 'LIQUID'
+}
 
 const ensureDateKey = (value: string): string => {
   const trimmed = value.trim()
@@ -24,11 +31,24 @@ export const isInboundMovement = (kind: MovementKind): boolean => {
   return kind === 'OPENING' || kind === 'IN' || kind === 'TRANSFER_IN'
 }
 
-export const signedMovementMultiplier = (kind: MovementKind): 1 | -1 => (isInboundMovement(kind) ? 1 : -1)
+export const signedMovementMultiplier = (kind: MovementKind): 1 | -1 | 0 => {
+  if (kind === 'REVALUATION') {
+    return 0
+  }
+
+  return isInboundMovement(kind) ? 1 : -1
+}
 
 export const normalizeMovement = (movement: HoldingMovement): HoldingMovement => {
-  const { linkedMovementId, ...base } = movement
+  const { linkedMovementId, valuationDate, valuationSource, valuationCurrency, ...base } = movement
   const normalizedLinkedId = movement.linkedMovementId?.trim()
+  const normalizedType = HOLDING_TYPES.includes(movement.tipo) ? movement.tipo : 'Other'
+  const normalizedLiquidity = normalizeLiquidity((movement as { liquidity?: unknown }).liquidity, normalizedType)
+  const rawAmount = Number.isFinite(movement.monto) ? movement.monto : 0
+  const normalizedAmount = movement.kind === 'REVALUATION' ? rawAmount : Math.max(0, rawAmount)
+  const normalizedValuationDate = valuationDate?.trim()
+  const normalizedValuationSource = valuationSource?.trim()
+  const normalizedValuationCurrency = valuationCurrency?.trim().toUpperCase()
 
   return {
     ...base,
@@ -36,14 +56,18 @@ export const normalizeMovement = (movement: HoldingMovement): HoldingMovement =>
     kind: movement.kind,
     cuenta: normalizeAccount(movement.cuenta),
     moneda: normalizeCurrency(movement.moneda),
-    monto: Math.max(0, Number.isFinite(movement.monto) ? movement.monto : 0),
+    monto: normalizedAmount,
     cantidad: movement.cantidad === null || !Number.isFinite(movement.cantidad) ? null : Math.max(0, movement.cantidad),
-    tipo: HOLDING_TYPES.includes(movement.tipo) ? movement.tipo : 'Other',
+    tipo: normalizedType,
     subactivo: normalizeSubasset(movement.subactivo),
+    liquidity: normalizedLiquidity,
     tags: normalizeTags(movement.tags ?? []),
     note: movement.note.trim(),
     createdAt: Number.isFinite(movement.createdAt) ? movement.createdAt : Date.now(),
-    ...(normalizedLinkedId ? { linkedMovementId: normalizedLinkedId } : {})
+    ...(normalizedLinkedId ? { linkedMovementId: normalizedLinkedId } : {}),
+    ...(movement.kind === 'REVALUATION' && normalizedValuationDate ? { valuationDate: ensureDateKey(normalizedValuationDate) } : {}),
+    ...(movement.kind === 'REVALUATION' && normalizedValuationSource ? { valuationSource: normalizedValuationSource } : {}),
+    ...(movement.kind === 'REVALUATION' && normalizedValuationCurrency ? { valuationCurrency: normalizedValuationCurrency } : {})
   }
 }
 
@@ -59,6 +83,7 @@ export const buildMovementsFromRows = (rows: HoldingRow[], createdAt: number): H
       cantidad: row.cantidad,
       tipo: row.tipo,
       subactivo: row.subactivo,
+      liquidity: row.liquidity,
       tags: row.tags,
       note: 'Migración automática desde holdings previos',
       createdAt
@@ -71,6 +96,7 @@ interface HoldingAccumulator {
   moneda: string
   tipo: HoldingRow['tipo']
   subactivo: string
+  liquidity: HoldingRow['liquidity']
   monto: number
   cantidad: number
   hasCantidad: boolean
@@ -78,11 +104,11 @@ interface HoldingAccumulator {
 }
 
 const buildGroupingKey = (movement: HoldingMovement): string => {
-  return `${movement.cuenta.toLowerCase()}::${movement.moneda.toUpperCase()}::${movement.tipo}::${movement.subactivo.toUpperCase()}`
+  return `${movement.cuenta.toLowerCase()}::${movement.moneda.toUpperCase()}::${movement.tipo}::${movement.subactivo.toUpperCase()}::${movement.liquidity}`
 }
 
 const buildRowAssetKey = (row: HoldingRow): string => {
-  return `${row.moneda.trim().toUpperCase()}::${row.tipo}::${row.subactivo.trim().toUpperCase()}`
+  return `${row.moneda.trim().toUpperCase()}::${row.tipo}::${row.subactivo.trim().toUpperCase()}::${row.liquidity}`
 }
 
 export const rebuildRowsFromMovements = (movements: HoldingMovement[]): HoldingRow[] => {
@@ -99,18 +125,22 @@ export const rebuildRowsFromMovements = (movements: HoldingMovement[]): HoldingR
       moneda: movement.moneda,
       tipo: movement.tipo,
       subactivo: movement.subactivo,
+      liquidity: movement.liquidity,
       monto: 0,
       cantidad: 0,
       hasCantidad: false,
       tags: new Set<string>()
     }
-    const multiplier = signedMovementMultiplier(movement.kind)
+    if (movement.kind === 'REVALUATION') {
+      current.monto += movement.monto
+    } else {
+      const multiplier = signedMovementMultiplier(movement.kind)
+      current.monto += multiplier * movement.monto
 
-    current.monto += multiplier * movement.monto
-
-    if (movement.cantidad !== null) {
-      current.hasCantidad = true
-      current.cantidad += multiplier * movement.cantidad
+      if (movement.cantidad !== null) {
+        current.hasCantidad = true
+        current.cantidad += multiplier * movement.cantidad
+      }
     }
 
     movement.tags.forEach((tag) => current.tags.add(tag))
@@ -135,6 +165,7 @@ export const rebuildRowsFromMovements = (movements: HoldingMovement[]): HoldingR
       cantidad: nextQuantity,
       tipo: item.tipo,
       subactivo: item.subactivo,
+      liquidity: item.liquidity,
       tags: normalizeTags(Array.from(item.tags))
     })
   })
@@ -154,6 +185,8 @@ export const movementKindToLabel = (kind: MovementKind): string => {
       return 'Transferencia +'
     case 'TRANSFER_OUT':
       return 'Transferencia -'
+    case 'REVALUATION':
+      return 'Revalorización'
     default:
       return kind
   }
@@ -167,6 +200,7 @@ export interface TransferValidationInput {
   cantidad: number | null
   tipo: HoldingRow['tipo']
   subactivo: string
+  liquidity: HoldingRow['liquidity']
 }
 
 interface AssetDebitValidationInput {
@@ -176,12 +210,14 @@ interface AssetDebitValidationInput {
   cantidad: number | null
   tipo: HoldingRow['tipo']
   subactivo: string
+  liquidity: HoldingRow['liquidity']
 }
 
 export const validateAssetDebitAgainstRows = (rows: HoldingRow[], draft: AssetDebitValidationInput): string | null => {
   const cuenta = normalizeAccount(draft.cuenta).toLowerCase()
   const moneda = normalizeCurrency(draft.moneda)
   const subactivo = normalizeSubasset(draft.subactivo)
+  const liquidity = normalizeLiquidity(draft.liquidity, draft.tipo)
 
   if (!cuenta) {
     return 'La cuenta origen es obligatoria.'
@@ -192,7 +228,8 @@ export const validateAssetDebitAgainstRows = (rows: HoldingRow[], draft: AssetDe
       normalizeAccount(row.cuenta).toLowerCase() === cuenta &&
       normalizeCurrency(row.moneda) === moneda &&
       row.tipo === draft.tipo &&
-      normalizeSubasset(row.subactivo) === subactivo
+      normalizeSubasset(row.subactivo) === subactivo &&
+      row.liquidity === liquidity
     )
   })
 
@@ -222,7 +259,8 @@ export const validateTransferAgainstRows = (rows: HoldingRow[], draft: TransferV
   const cuentaTo = normalizeAccount(draft.cuentaTo).toLowerCase()
   const moneda = normalizeCurrency(draft.moneda)
   const subactivo = normalizeSubasset(draft.subactivo)
-  const targetAssetKey = `${moneda}::${draft.tipo}::${subactivo}`
+  const liquidity = normalizeLiquidity(draft.liquidity, draft.tipo)
+  const targetAssetKey = `${moneda}::${draft.tipo}::${subactivo}::${liquidity}`
 
   if (!cuentaFrom || !cuentaTo) {
     return 'Las cuentas origen y destino son obligatorias.'
@@ -238,7 +276,8 @@ export const validateTransferAgainstRows = (rows: HoldingRow[], draft: TransferV
     monto: draft.monto,
     cantidad: draft.cantidad,
     tipo: draft.tipo,
-    subactivo: draft.subactivo
+    subactivo: draft.subactivo,
+    liquidity: draft.liquidity
   })
   if (debitError) {
     if (debitError === 'La cuenta origen no tiene ese asset para mover.') {
@@ -268,12 +307,19 @@ export const isValidMovement = (value: unknown): value is HoldingMovement => {
 
   const candidate = value as HoldingMovement
 
-  const isValidKind = typeof candidate.kind === 'string' && (['OPENING', 'IN', 'OUT', 'TRANSFER_IN', 'TRANSFER_OUT'] as string[]).includes(candidate.kind)
+  const isValidKind =
+    typeof candidate.kind === 'string' && (['OPENING', 'IN', 'OUT', 'TRANSFER_IN', 'TRANSFER_OUT', 'REVALUATION'] as string[]).includes(candidate.kind)
   const validDate = typeof candidate.date === 'string' && DATE_KEY_PATTERN.test(candidate.date)
   const validQty =
     candidate.cantidad === null || candidate.cantidad === undefined || (typeof candidate.cantidad === 'number' && Number.isFinite(candidate.cantidad))
   const validTags = Array.isArray(candidate.tags) && candidate.tags.every((item) => typeof item === 'string')
   const validLinked = candidate.linkedMovementId === undefined || typeof candidate.linkedMovementId === 'string'
+  const validLiquidity =
+    candidate.liquidity === undefined || (typeof candidate.liquidity === 'string' && LIQUIDITY_KINDS.includes(candidate.liquidity))
+  const validValuationDate =
+    candidate.valuationDate === undefined || (typeof candidate.valuationDate === 'string' && DATE_KEY_PATTERN.test(candidate.valuationDate))
+  const validValuationSource = candidate.valuationSource === undefined || typeof candidate.valuationSource === 'string'
+  const validValuationCurrency = candidate.valuationCurrency === undefined || typeof candidate.valuationCurrency === 'string'
 
   return (
     typeof candidate.id === 'string' &&
@@ -287,11 +333,15 @@ export const isValidMovement = (value: unknown): value is HoldingMovement => {
     typeof candidate.tipo === 'string' &&
     HOLDING_TYPES.includes(candidate.tipo) &&
     typeof candidate.subactivo === 'string' &&
+    validLiquidity &&
     validTags &&
     typeof candidate.note === 'string' &&
     typeof candidate.createdAt === 'number' &&
     Number.isFinite(candidate.createdAt) &&
-    validLinked
+    validLinked &&
+    validValuationDate &&
+    validValuationSource &&
+    validValuationCurrency
   )
 }
 

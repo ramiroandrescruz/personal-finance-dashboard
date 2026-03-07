@@ -1,6 +1,6 @@
 import type { HoldingRow } from '../types'
 
-export const SUBASSET_CATEGORIES = ['Fiat', 'Stablecoin', 'Crypto', 'ETF', 'Stock', 'Other'] as const
+export const SUBASSET_CATEGORIES = ['Fiat', 'Stablecoin', 'Crypto', 'ETF', 'Stock', 'Property', 'Other'] as const
 
 export type SubassetCategory = (typeof SUBASSET_CATEGORIES)[number]
 
@@ -28,6 +28,10 @@ export const getSubassetCategory = (row: HoldingRow): SubassetCategory => {
 
   if (row.tipo === 'Investments') {
     return 'Stock'
+  }
+
+  if (row.tipo === 'Properties') {
+    return 'Property'
   }
 
   return 'Other'

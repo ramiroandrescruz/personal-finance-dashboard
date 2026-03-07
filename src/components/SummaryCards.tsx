@@ -7,7 +7,7 @@ interface SummaryCardsProps {
   deltasByType?: Partial<Record<HoldingType, number>>
 }
 
-const CATEGORY_ORDER: HoldingType[] = ['Cash', 'Investments', 'Crypto']
+const CATEGORY_ORDER: HoldingType[] = ['Cash', 'Investments', 'Crypto', 'Properties']
 
 export const SummaryCards = ({ totalUsdFinanciero, totalsByType, deltasByType }: SummaryCardsProps) => {
   return (

@@ -8,17 +8,24 @@ import type {
   SavedDashboardView,
   Settings
 } from '../types'
-import { HOLDING_TYPES } from '../types'
+import { HOLDING_TYPES, LIQUIDITY_KINDS } from '../types'
 import { DEFAULT_ALLOCATION_TARGETS, sanitizeTargets } from './allocationTargets'
 import { normalizeTags } from './tags'
 import { buildMovementsFromRows, isValidMovement, normalizeMovement, rebuildRowsFromMovements } from './transactions'
 
 const STORAGE_KEY = 'personal-finance-dashboard'
-const SCHEMA_VERSION = 5
+const SCHEMA_VERSION = 6
 
-type LegacyHoldingRow = Omit<HoldingRow, 'cantidad' | 'tags'> & {
+type LegacyHoldingRow = {
+  id: string
+  cuenta: string
+  moneda: string
+  monto: number
+  tipo: string
+  subactivo: string
   cantidad?: number | null
   tags?: string[]
+  liquidity?: string
 }
 
 interface PersistedDashboardV1 {
@@ -57,6 +64,17 @@ interface PersistedDashboardV4 {
 
 interface PersistedDashboardV5 {
   schemaVersion: 5
+  rows: HoldingRow[]
+  transactions: HoldingMovement[]
+  settings: Settings
+  targets: AllocationTargets
+  snapshots: PortfolioSnapshot[]
+  savedViews: SavedDashboardView[]
+  updatedAt: number
+}
+
+interface PersistedDashboardV6 {
+  schemaVersion: 6
   rows: HoldingRow[]
   transactions: HoldingMovement[]
   settings: Settings
@@ -108,8 +126,14 @@ const normalizeRow = (row: LegacyHoldingRow): HoldingRow => ({
   monto: row.monto,
   cantidad: typeof row.cantidad === 'number' && Number.isFinite(row.cantidad) ? row.cantidad : null,
   tags: normalizeTags(Array.isArray(row.tags) ? row.tags : []),
-  tipo: row.tipo,
-  subactivo: row.subactivo
+  tipo: HOLDING_TYPES.includes(row.tipo as (typeof HOLDING_TYPES)[number]) ? (row.tipo as HoldingRow['tipo']) : 'Other',
+  subactivo: row.subactivo,
+  liquidity:
+    typeof row.liquidity === 'string' && LIQUIDITY_KINDS.includes(row.liquidity as (typeof LIQUIDITY_KINDS)[number])
+      ? (row.liquidity as HoldingRow['liquidity'])
+      : row.tipo === 'Properties'
+        ? 'ILLIQUID'
+        : 'LIQUID'
 })
 
 const isValidSettings = (settings: unknown): settings is Settings => {
@@ -359,6 +383,13 @@ const migrateFromV5 = (candidate: PersistedDashboardV5): PersistedDashboard | nu
   }
 }
 
+const migrateFromV6 = (candidate: PersistedDashboardV6): PersistedDashboard | null => {
+  return migrateFromV5({
+    ...candidate,
+    schemaVersion: 5
+  })
+}
+
 const migrate = (payload: unknown): PersistedDashboard | null => {
   if (!payload || typeof payload !== 'object') {
     return null
@@ -386,6 +417,10 @@ const migrate = (payload: unknown): PersistedDashboard | null => {
     return migrateFromV5(payload as PersistedDashboardV5)
   }
 
+  if (candidate.schemaVersion === 6) {
+    return migrateFromV6(payload as PersistedDashboardV6)
+  }
+
   return null
 }
 
@@ -393,7 +428,7 @@ export const parsePersistedDashboard = (payload: unknown): PersistedDashboard | 
   return migrate(payload)
 }
 
-export const serializePersistedDashboard = (data: PersistedDashboard): PersistedDashboardV5 => {
+export const serializePersistedDashboard = (data: PersistedDashboard): PersistedDashboardV6 => {
   const normalizedTransactions = data.transactions.map(normalizeMovement)
   const rebuiltRows = rebuildRowsFromMovements(normalizedTransactions)
 

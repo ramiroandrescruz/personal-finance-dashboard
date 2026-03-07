@@ -5,6 +5,7 @@ import type {
   AllocationTargets,
   DashboardFilterState,
   HoldingMovement,
+  LiquidityKind,
   HoldingType,
   HoldingRow,
   HoldingsState,
@@ -39,15 +40,19 @@ interface UseHoldingsStoreOptions {
 
 export interface MovementDraft {
   date: string
-  kind: 'OPENING' | 'IN' | 'OUT'
+  kind: 'OPENING' | 'IN' | 'OUT' | 'REVALUATION'
   cuenta: string
   moneda: string
   monto: number
   cantidad: number | null
   tipo: HoldingType
   subactivo: string
+  liquidity: LiquidityKind
   tags: string[]
   note?: string
+  valuationDate?: string
+  valuationSource?: string
+  valuationCurrency?: string
 }
 
 export interface TransferDraft {
@@ -59,6 +64,7 @@ export interface TransferDraft {
   cantidad: number | null
   tipo: HoldingType
   subactivo: string
+  liquidity: LiquidityKind
   tags: string[]
   note?: string
 }
@@ -74,8 +80,10 @@ export interface ConversionDraft {
   cantidad: number | null
   tipoFrom: HoldingType
   subactivoFrom: string
+  liquidityFrom: LiquidityKind
   tipoTo: HoldingType
   subactivoTo: string
+  liquidityTo: LiquidityKind
   tags: string[]
   note?: string
 }
@@ -370,9 +378,13 @@ export const useHoldingsStore = ({ userId, cloudSyncEnabled = false }: UseHoldin
           cantidad: draft.cantidad,
           tipo: draft.tipo,
           subactivo: draft.subactivo,
+          liquidity: draft.liquidity,
           tags: normalizeTags(draft.tags),
           note: draft.note?.trim() ?? '',
-          createdAt
+          createdAt,
+          valuationDate: draft.valuationDate,
+          valuationSource: draft.valuationSource,
+          valuationCurrency: draft.valuationCurrency
         })
       })
     },
@@ -407,6 +419,7 @@ export const useHoldingsStore = ({ userId, cloudSyncEnabled = false }: UseHoldin
             cantidad: draft.cantidad,
             tipo,
             subactivo,
+            liquidity: draft.liquidity,
             tags: normalizeTags(draft.tags),
             note: draft.note?.trim() ?? '',
             createdAt,
@@ -422,6 +435,7 @@ export const useHoldingsStore = ({ userId, cloudSyncEnabled = false }: UseHoldin
             cantidad: draft.cantidad,
             tipo,
             subactivo,
+            liquidity: draft.liquidity,
             tags: normalizeTags(draft.tags),
             note: draft.note?.trim() ?? '',
             createdAt,
@@ -443,7 +457,8 @@ export const useHoldingsStore = ({ userId, cloudSyncEnabled = false }: UseHoldin
         monto: draft.monto,
         cantidad: draft.cantidad,
         tipo: draft.tipoFrom,
-        subactivo: draft.subactivoFrom
+        subactivo: draft.subactivoFrom,
+        liquidity: draft.liquidityFrom
       })
       if (validationError) {
         return { ok: false, error: validationError }
@@ -466,6 +481,7 @@ export const useHoldingsStore = ({ userId, cloudSyncEnabled = false }: UseHoldin
             cantidad: draft.cantidad,
             tipo: draft.tipoFrom,
             subactivo: draft.subactivoFrom,
+            liquidity: draft.liquidityFrom,
             tags: normalizeTags(draft.tags),
             note: draft.note?.trim() ?? '',
             createdAt,
@@ -481,6 +497,7 @@ export const useHoldingsStore = ({ userId, cloudSyncEnabled = false }: UseHoldin
             cantidad: draft.cantidad,
             tipo: draft.tipoTo,
             subactivo: draft.subactivoTo,
+            liquidity: draft.liquidityTo,
             tags: normalizeTags(draft.tags),
             note: draft.note?.trim() ?? '',
             createdAt,

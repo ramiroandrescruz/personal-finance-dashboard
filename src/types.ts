@@ -1,12 +1,16 @@
-export const HOLDING_TYPES = ['Cash', 'Investments', 'Crypto', 'Other'] as const
+export const HOLDING_TYPES = ['Cash', 'Investments', 'Crypto', 'Properties', 'Other'] as const
 
 export type HoldingType = (typeof HOLDING_TYPES)[number]
 
 export type SupportedCurrency = 'ARS' | 'USD'
 
-export const MOVEMENT_KINDS = ['OPENING', 'IN', 'OUT', 'TRANSFER_IN', 'TRANSFER_OUT'] as const
+export const MOVEMENT_KINDS = ['OPENING', 'IN', 'OUT', 'TRANSFER_IN', 'TRANSFER_OUT', 'REVALUATION'] as const
 
 export type MovementKind = (typeof MOVEMENT_KINDS)[number]
+
+export const LIQUIDITY_KINDS = ['LIQUID', 'ILLIQUID'] as const
+
+export type LiquidityKind = (typeof LIQUIDITY_KINDS)[number]
 
 export interface HoldingRow {
   id: string
@@ -17,6 +21,7 @@ export interface HoldingRow {
   tags: string[]
   tipo: HoldingType
   subactivo: string
+  liquidity: LiquidityKind
 }
 
 export interface HoldingMovement {
@@ -29,10 +34,14 @@ export interface HoldingMovement {
   cantidad: number | null
   tipo: HoldingType
   subactivo: string
+  liquidity: LiquidityKind
   tags: string[]
   note: string
   createdAt: number
   linkedMovementId?: string
+  valuationDate?: string
+  valuationSource?: string
+  valuationCurrency?: string
 }
 
 export interface Settings {

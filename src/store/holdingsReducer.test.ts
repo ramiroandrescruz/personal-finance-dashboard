@@ -13,7 +13,8 @@ const initialState: HoldingsState = {
       cantidad: null,
       tags: [],
       tipo: 'Cash',
-      subactivo: 'USD'
+      subactivo: 'USD',
+      liquidity: 'LIQUID'
     }
   ],
   settings: {
@@ -44,7 +45,8 @@ describe('holdingsReducer', () => {
             cantidad: 2,
             tags: ['core'],
             tipo: 'Investments',
-            subactivo: 'SPY'
+            subactivo: 'SPY',
+            liquidity: 'LIQUID'
           }
         ],
         transactions: [
@@ -58,6 +60,7 @@ describe('holdingsReducer', () => {
             cantidad: 2,
             tipo: 'Investments',
             subactivo: 'SPY',
+            liquidity: 'LIQUID',
             tags: ['core'],
             note: 'migracion',
             createdAt: 1
@@ -97,7 +100,8 @@ describe('holdingsReducer', () => {
         cantidad: null,
         tags: [],
         tipo: 'Cash',
-        subactivo: 'ARS'
+        subactivo: 'ARS',
+        liquidity: 'LIQUID'
       }
     })
 
@@ -119,6 +123,7 @@ describe('holdingsReducer', () => {
         cantidad: 0.05,
         tipo: 'Crypto',
         subactivo: 'BTC',
+        liquidity: 'LIQUID',
         tags: ['core'],
         note: '',
         createdAt: 2
