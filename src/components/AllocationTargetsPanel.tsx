@@ -12,7 +12,6 @@ interface DistributionPoint {
 
 interface AllocationTargetsPanelProps {
   byType: DistributionPoint[]
-  bySubasset: DistributionPoint[]
   targets: AllocationTargets
   onTargetsChange: (targets: AllocationTargets) => void
   onClose?: () => void
@@ -34,7 +33,6 @@ const updateTargetMap = (map: Record<string, number>, key: string, value: number
 
 export const AllocationTargetsPanel = ({
   byType,
-  bySubasset,
   targets,
   onTargetsChange,
   onClose
@@ -42,22 +40,15 @@ export const AllocationTargetsPanel = ({
   const threshold = clampTargetPercent(targets.alertThresholdPct)
 
   const typeRows = buildDeviationRows(byType, targets.byType, threshold, { onlyWithTarget: true })
-  const subassetRows = buildDeviationRows(bySubasset, targets.bySubasset, threshold, { onlyWithTarget: true })
-
-  const alerts = summarizeAlerts([...typeRows, ...subassetRows])
+  const alerts = summarizeAlerts(typeRows)
 
   const typeTargetSum = sumValues(Object.values(targets.byType).map((value) => value ?? 0))
-  const subassetTargetSum = sumValues(Object.values(targets.bySubasset))
-
-  const allSubassetKeys = Array.from(new Set([...Object.keys(targets.bySubasset), ...bySubasset.map((row) => row.name)])).sort((a, b) =>
-    a.localeCompare(b, 'es', { sensitivity: 'base' })
-  )
 
   return (
     <section className="allocation-panel" aria-label="Objetivos de asignación">
       <div className="allocation-header">
         <div>
-          <h2>Objetivos de Asignación</h2>
+          <h2>Objetivos de Asignación por Tipo</h2>
           <p className="muted-text">Definí metas y detectá desvíos automáticamente</p>
         </div>
 
@@ -94,123 +85,53 @@ export const AllocationTargetsPanel = ({
           : `Sin desvíos críticos (umbral ${formatPlainNumber(threshold)}%)`}
       </div>
 
-      <div className="allocation-grid">
-        <article className="allocation-card">
-          <h3>Objetivos por Tipo</h3>
-          <p className="muted-text">Suma objetivo: {formatPlainNumber(typeTargetSum)}% · sin target = sin alerta</p>
+      <article className="allocation-card">
+        <h3>Objetivos por Tipo</h3>
+        <p className="muted-text">Suma objetivo: {formatPlainNumber(typeTargetSum)}% · sin target = sin alerta</p>
 
-          <div className="allocation-targets-list">
-            {HOLDING_TYPES.map((type) => (
-              <label key={type} className="allocation-target-row">
-                <span>{type}</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.1"
-                  value={targets.byType[type] ?? ''}
-                  placeholder="0"
-                  onChange={(event) => {
-                    const parsed = Number(event.target.value)
-                    const nextByType = updateTargetMap(targets.byType as Record<string, number>, type, parsed)
+        <div className="allocation-targets-list">
+          {HOLDING_TYPES.map((type) => (
+            <label key={type} className="allocation-target-row">
+              <span>{type}</span>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                value={targets.byType[type] ?? ''}
+                placeholder="0"
+                onChange={(event) => {
+                  const parsed = Number(event.target.value)
+                  const nextByType = updateTargetMap(targets.byType as Record<string, number>, type, parsed)
 
-                    onTargetsChange({
-                      ...targets,
-                      byType: nextByType as Partial<Record<HoldingType, number>>
-                    })
-                  }}
-                />
-              </label>
-            ))}
-          </div>
+                  onTargetsChange({
+                    ...targets,
+                    byType: nextByType as Partial<Record<HoldingType, number>>
+                  })
+                }}
+              />
+            </label>
+          ))}
+        </div>
 
-          <div className="allocation-table-wrap">
-            <table className="allocation-table">
-              <thead>
+        <div className="allocation-table-wrap">
+          <table className="allocation-table">
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th>Actual</th>
+                <th>Objetivo</th>
+                <th>Desvío</th>
+                <th>USD</th>
+              </tr>
+            </thead>
+            <tbody>
+              {typeRows.length === 0 ? (
                 <tr>
-                  <th>Tipo</th>
-                  <th>Actual</th>
-                  <th>Objetivo</th>
-                  <th>Desvío</th>
-                  <th>USD</th>
+                  <td colSpan={5}>Sin tipos con objetivo definido.</td>
                 </tr>
-              </thead>
-              <tbody>
-                {typeRows.length === 0 ? (
-                  <tr>
-                    <td colSpan={5}>Sin tipos con objetivo definido.</td>
-                  </tr>
-                ) : (
-                  typeRows.map((row) => (
-                    <tr key={row.name}>
-                      <td>{row.name}</td>
-                      <td>{formatPlainNumber(row.currentPct)}%</td>
-                      <td>{formatPlainNumber(row.targetPct)}%</td>
-                      <td>
-                        <span
-                          className={`deviation-pill ${row.isAlert ? 'is-alert' : ''} ${
-                            row.deviationPct > 0 ? 'is-positive' : row.deviationPct < 0 ? 'is-negative' : ''
-                          }`}
-                        >
-                          {row.deviationPct > 0 ? '+' : ''}
-                          {formatPlainNumber(row.deviationPct)}%
-                        </span>
-                      </td>
-                      <td>{formatUsd(row.usdValue)}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </article>
-
-        <article className="allocation-card">
-          <h3>Objetivos por Subactivo</h3>
-          <p className="muted-text">
-            Suma objetivo: {formatPlainNumber(subassetTargetSum)}% · opcional (sin target = sin alerta)
-          </p>
-
-          <div className="allocation-targets-list allocation-targets-list-subasset">
-            {allSubassetKeys.length === 0 ? <p className="muted-text">No hay subactivos en los filtros actuales.</p> : null}
-
-            {allSubassetKeys.map((subasset) => (
-              <label key={subasset} className="allocation-target-row">
-                <span>{subasset}</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.1"
-                  value={targets.bySubasset[subasset] ?? ''}
-                  placeholder="0"
-                  onChange={(event) => {
-                    const parsed = Number(event.target.value)
-                    const nextBySubasset = updateTargetMap(targets.bySubasset, subasset, parsed)
-
-                    onTargetsChange({
-                      ...targets,
-                      bySubasset: nextBySubasset
-                    })
-                  }}
-                />
-              </label>
-            ))}
-          </div>
-
-          <div className="allocation-table-wrap">
-            <table className="allocation-table">
-              <thead>
-                <tr>
-                  <th>Subactivo</th>
-                  <th>Actual</th>
-                  <th>Objetivo</th>
-                  <th>Desvío</th>
-                  <th>USD</th>
-                </tr>
-              </thead>
-              <tbody>
-                {subassetRows.map((row) => (
+              ) : (
+                typeRows.map((row) => (
                   <tr key={row.name}>
                     <td>{row.name}</td>
                     <td>{formatPlainNumber(row.currentPct)}%</td>
@@ -227,12 +148,12 @@ export const AllocationTargetsPanel = ({
                     </td>
                     <td>{formatUsd(row.usdValue)}</td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </article>
-      </div>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </article>
     </section>
   )
 }

@@ -35,6 +35,7 @@ export type HoldingsAction =
   | { type: 'SET_TARGETS'; payload: AllocationTargets }
   | { type: 'SET_SAVED_VIEWS'; payload: SavedDashboardView[] }
   | { type: 'UPSERT_SNAPSHOT'; payload: PortfolioSnapshot }
+  | { type: 'REBASE_INITIAL_VALUES'; payload: { transactions: HoldingMovement[]; snapshots: PortfolioSnapshot[] } }
   | { type: 'RESET_DATA'; payload: { transactions: HoldingMovement[]; settings: Settings; targets: AllocationTargets } }
 
 const withEditTimestamp = (state: Omit<HoldingsState, 'lastEditedAt'>): HoldingsState => ({
@@ -329,6 +330,19 @@ export const holdingsReducer = (state: HoldingsState, action: HoldingsAction): H
         settings: state.settings,
         targets: state.targets,
         snapshots: upsertSnapshot(state.snapshots, action.payload),
+        savedViews: state.savedViews
+      })
+    }
+
+    case 'REBASE_INITIAL_VALUES': {
+      const normalizedTransactions = action.payload.transactions.map(normalizeMovement)
+
+      return withEditTimestamp({
+        rows: rebuildRowsFromMovements(normalizedTransactions),
+        transactions: normalizedTransactions,
+        settings: state.settings,
+        targets: state.targets,
+        snapshots: action.payload.snapshots,
         savedViews: state.savedViews
       })
     }

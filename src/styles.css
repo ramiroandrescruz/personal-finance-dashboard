@@ -423,6 +423,67 @@ body {
   width: 100%;
 }
 
+.chart-with-legend {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.chart-with-legend-plot {
+  min-width: 0;
+}
+
+.pie-legend-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.pie-legend-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: var(--space-2);
+  align-items: center;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--surface-3);
+  padding: 7px 10px;
+  font-size: 0.78rem;
+}
+
+.pie-legend-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.pie-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+
+.pie-legend-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pie-legend-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.pie-legend-pct {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
 .recharts-default-tooltip {
   background: var(--tooltip-bg) !important;
   border: 1px solid var(--tooltip-border) !important;
@@ -1032,6 +1093,10 @@ select:focus-visible {
   .hero-variations-grid,
   .summary-grid-compact,
   .charts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-with-legend {
     grid-template-columns: 1fr;
   }
 

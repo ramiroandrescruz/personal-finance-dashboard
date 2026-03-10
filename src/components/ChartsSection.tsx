@@ -31,6 +31,34 @@ const sortDesc = (rows: ChartPoint[]): ChartPoint[] => {
   return [...rows].sort((left, right) => right.value - left.value)
 }
 
+interface PieLegendProps {
+  rows: ChartPoint[]
+}
+
+const PieLegend = ({ rows }: PieLegendProps) => {
+  const total = rows.reduce((accumulator, row) => accumulator + row.value, 0)
+
+  return (
+    <ul className="pie-legend-list" aria-label="Montos por categoría">
+      {rows.map((entry, index) => {
+        const percentage = total > 0 ? (entry.value / total) * 100 : 0
+        return (
+          <li key={entry.name} className="pie-legend-item">
+            <span className="pie-legend-left">
+              <span className="pie-legend-dot" style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }} aria-hidden="true" />
+              <span className="pie-legend-name" title={entry.name}>
+                {entry.name}
+              </span>
+            </span>
+            <span className="pie-legend-value">{formatUsd(entry.value)}</span>
+            <span className="pie-legend-pct">{formatPercentage(percentage)}</span>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
 export const ChartsSection = ({ byType, bySubasset, byAccount }: ChartsSectionProps) => {
   const sortedByType = useMemo(() => sortDesc(byType), [byType])
   const sortedBySubasset = useMemo(() => sortDesc(bySubasset), [bySubasset])
@@ -80,22 +108,25 @@ export const ChartsSection = ({ byType, bySubasset, byAccount }: ChartsSectionPr
         {sortedByType.length === 0 ? (
           <p className="empty-state">Sin datos para los filtros actuales.</p>
         ) : (
-          <div className="chart-container">
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie data={sortedByType} dataKey="value" nameKey="name" innerRadius={70} outerRadius={98} paddingAngle={2}>
-                  {sortedByType.map((entry, index) => (
-                    <Cell key={`${entry.name}-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={currencyTooltipFormatter}
-                  contentStyle={tooltipStyle}
-                  labelStyle={tooltipTextStyle}
-                  itemStyle={tooltipTextStyle}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+          <div className="chart-container chart-with-legend">
+            <div className="chart-with-legend-plot">
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie data={sortedByType} dataKey="value" nameKey="name" innerRadius={70} outerRadius={98} paddingAngle={2}>
+                    {sortedByType.map((entry, index) => (
+                      <Cell key={`${entry.name}-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={currencyTooltipFormatter}
+                    contentStyle={tooltipStyle}
+                    labelStyle={tooltipTextStyle}
+                    itemStyle={tooltipTextStyle}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <PieLegend rows={sortedByType} />
           </div>
         )}
       </article>
@@ -105,25 +136,28 @@ export const ChartsSection = ({ byType, bySubasset, byAccount }: ChartsSectionPr
         {bySubassetWithPercentage.length === 0 ? (
           <p className="empty-state">Sin datos para los filtros actuales.</p>
         ) : bySubassetWithPercentage.length <= SUBASSET_PIE_THRESHOLD ? (
-          <div className="chart-container">
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie data={bySubassetWithPercentage} dataKey="value" nameKey="name" innerRadius={74} outerRadius={108} paddingAngle={2}>
-                  {bySubassetWithPercentage.map((entry, index) => (
-                    <Cell key={`${entry.name}-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(value, _name, item) => {
-                    const percentage = (item.payload as { percentage?: number })?.percentage ?? 0
-                    return [`${formatUsd(Number(value))} (${formatPercentage(percentage)})`, 'USD financiero']
-                  }}
-                  contentStyle={tooltipStyle}
-                  labelStyle={tooltipTextStyle}
-                  itemStyle={tooltipTextStyle}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+          <div className="chart-container chart-with-legend">
+            <div className="chart-with-legend-plot">
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie data={bySubassetWithPercentage} dataKey="value" nameKey="name" innerRadius={74} outerRadius={108} paddingAngle={2}>
+                    {bySubassetWithPercentage.map((entry, index) => (
+                      <Cell key={`${entry.name}-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value, _name, item) => {
+                      const percentage = (item.payload as { percentage?: number })?.percentage ?? 0
+                      return [`${formatUsd(Number(value))} (${formatPercentage(percentage)})`, 'USD financiero']
+                    }}
+                    contentStyle={tooltipStyle}
+                    labelStyle={tooltipTextStyle}
+                    itemStyle={tooltipTextStyle}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <PieLegend rows={sortedBySubasset} />
           </div>
         ) : (
           <div className="chart-container">

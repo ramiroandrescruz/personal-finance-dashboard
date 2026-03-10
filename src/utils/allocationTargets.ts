@@ -35,20 +35,9 @@ export const sanitizeTargets = (targets: AllocationTargets): AllocationTargets =
     return accumulator
   }, {})
 
-  const bySubasset = Object.entries(targets.bySubasset).reduce<Record<string, number>>((accumulator, [key, value]) => {
-    const normalizedKey = key.trim().toUpperCase()
-    const normalizedValue = clampTargetPercent(Number(value ?? 0))
-
-    if (normalizedKey.length > 0 && normalizedValue > 0) {
-      accumulator[normalizedKey] = normalizedValue
-    }
-
-    return accumulator
-  }, {})
-
   return {
     byType,
-    bySubasset,
+    bySubasset: {},
     alertThresholdPct: clampTargetPercent(targets.alertThresholdPct)
   }
 }

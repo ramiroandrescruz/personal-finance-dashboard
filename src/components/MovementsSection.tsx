@@ -27,6 +27,7 @@ interface MovementsSectionProps {
   canRedo: boolean
   onUndo: () => void
   onRedo: () => void
+  onRebaseInitialValuesToToday: () => void
 }
 
 interface MovementFormState {
@@ -109,7 +110,8 @@ export const MovementsSection = ({
   canUndo,
   canRedo,
   onUndo,
-  onRedo
+  onRedo,
+  onRebaseInitialValuesToToday
 }: MovementsSectionProps) => {
   const [form, setForm] = useState<MovementFormState>(emptyForm)
   const [error, setError] = useState<string | null>(null)
@@ -485,6 +487,9 @@ export const MovementsSection = ({
         </div>
 
         <div className="movements-toolbar-actions">
+          <AppButton tone="tertiary" onClick={onRebaseInitialValuesToToday}>
+            Pisar valor inicial a hoy
+          </AppButton>
           <AppButton tone="tertiary" onClick={onUndo} disabled={!canUndo} title="Ctrl/Cmd + Z">
             Deshacer
           </AppButton>

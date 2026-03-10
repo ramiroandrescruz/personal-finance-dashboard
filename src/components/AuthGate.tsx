@@ -1,6 +1,7 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
 import {
   GoogleAuthProvider,
+  type User,
   browserSessionPersistence,
   onAuthStateChanged,
   setPersistence,
@@ -46,6 +47,45 @@ export const AuthGate = ({ children }: AuthGateProps) => {
   const [errorMessage, setErrorMessage] = useState<string>('')
   const [isSigningIn, setIsSigningIn] = useState(false)
 
+  const applyAuthorizedUser = useCallback(
+    async (user: User | null): Promise<boolean> => {
+      if (!firebaseAuth) {
+        setStatus('misconfigured')
+        return false
+      }
+
+      if (!user) {
+        setCurrentEmail('')
+        setCurrentUid('')
+        setStatus('ready')
+        return false
+      }
+
+      const normalizedEmail = user.email?.toLowerCase()
+
+      if (!normalizedEmail || !user.emailVerified) {
+        await signOut(firebaseAuth)
+        setErrorMessage('No se pudo verificar el email de la cuenta autenticada.')
+        setStatus('denied')
+        return false
+      }
+
+      if (normalizedEmail !== allowedEmail) {
+        await signOut(firebaseAuth)
+        setErrorMessage(`Acceso denegado para ${user.email}. Esta app permite solo una cuenta.`)
+        setStatus('denied')
+        return false
+      }
+
+      setCurrentEmail(user.email ?? normalizedEmail)
+      setCurrentUid(user.uid)
+      setErrorMessage('')
+      setStatus('authorized')
+      return true
+    },
+    [allowedEmail, firebaseAuth]
+  )
+
   const logout = useCallback(() => {
     if (!firebaseAuth) {
       setStatus('ready')
@@ -84,37 +124,7 @@ export const AuthGate = ({ children }: AuthGateProps) => {
           return
         }
 
-        if (!user) {
-          setCurrentEmail('')
-          setCurrentUid('')
-          setStatus('ready')
-          return
-        }
-
-        const normalizedEmail = user.email?.toLowerCase()
-
-        if (!normalizedEmail || !user.emailVerified) {
-          await signOut(firebaseAuth)
-          if (!isDisposed) {
-            setErrorMessage('No se pudo verificar el email de la cuenta autenticada.')
-            setStatus('denied')
-          }
-          return
-        }
-
-        if (normalizedEmail !== allowedEmail) {
-          await signOut(firebaseAuth)
-          if (!isDisposed) {
-            setErrorMessage(`Acceso denegado para ${user.email}. Esta app permite solo una cuenta.`)
-            setStatus('denied')
-          }
-          return
-        }
-
-        setCurrentEmail(user.email ?? normalizedEmail)
-        setCurrentUid(user.uid)
-        setErrorMessage('')
-        setStatus('authorized')
+        await applyAuthorizedUser(user)
       },
       (error) => {
         if (isDisposed) {
@@ -130,7 +140,7 @@ export const AuthGate = ({ children }: AuthGateProps) => {
       isDisposed = true
       unsubscribe()
     }
-  }, [allowedEmail, bypassAuth, firebaseAuth])
+  }, [applyAuthorizedUser, allowedEmail, bypassAuth, firebaseAuth])
 
   const handleSignIn = useCallback(async () => {
     if (!firebaseAuth) {
@@ -145,15 +155,22 @@ export const AuthGate = ({ children }: AuthGateProps) => {
     setErrorMessage('')
 
     try {
-      await signInWithPopup(firebaseAuth, provider)
-      setStatus('loading')
+      const result = await signInWithPopup(firebaseAuth, provider)
+      const appliedFromResult = await applyAuthorizedUser(result.user)
+
+      if (!appliedFromResult) {
+        const currentUser = firebaseAuth.currentUser
+        if (currentUser) {
+          await applyAuthorizedUser(currentUser)
+        }
+      }
     } catch (error) {
       setStatus('ready')
       setErrorMessage(toAuthErrorMessage(error))
     } finally {
       setIsSigningIn(false)
     }
-  }, [firebaseAuth])
+  }, [applyAuthorizedUser, firebaseAuth])
 
   if (status === 'authorized') {
     return (

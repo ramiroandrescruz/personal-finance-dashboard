@@ -294,4 +294,71 @@ describe('holdingsReducer', () => {
     expect(secondState.snapshots[0]?.totalUsdFinanciero).toBe(110)
     expect(secondState.snapshots[0]?.capturedAt).toBe(2)
   })
+
+  it('reemplaza historial por aperturas iniciales al rebaselinar', () => {
+    const withHistory = holdingsReducer(initialState, {
+      type: 'ADD_MOVEMENTS',
+      payload: [
+        {
+          id: 'm1',
+          date: '2026-01-01',
+          kind: 'IN',
+          cuenta: 'Broker',
+          moneda: 'USD',
+          monto: 1000,
+          cantidad: null,
+          tipo: 'Cash',
+          subactivo: 'USD',
+          liquidity: 'LIQUID',
+          tags: [],
+          note: '',
+          createdAt: 1
+        },
+        {
+          id: 'm2',
+          date: '2026-02-01',
+          kind: 'OUT',
+          cuenta: 'Broker',
+          moneda: 'USD',
+          monto: 200,
+          cantidad: null,
+          tipo: 'Cash',
+          subactivo: 'USD',
+          liquidity: 'LIQUID',
+          tags: [],
+          note: '',
+          createdAt: 2
+        }
+      ]
+    })
+
+    const rebased = holdingsReducer(withHistory, {
+      type: 'REBASE_INITIAL_VALUES',
+      payload: {
+        transactions: [
+          {
+            id: 'opening-1',
+            date: '2026-03-10',
+            kind: 'OPENING',
+            cuenta: 'Broker',
+            moneda: 'USD',
+            monto: 800,
+            cantidad: null,
+            tipo: 'Cash',
+            subactivo: 'USD',
+            liquidity: 'LIQUID',
+            tags: [],
+            note: 'Rebase',
+            createdAt: 3
+          }
+        ],
+        snapshots: []
+      }
+    })
+
+    expect(rebased.transactions).toHaveLength(1)
+    expect(rebased.transactions[0]?.kind).toBe('OPENING')
+    expect(rebased.rows).toHaveLength(1)
+    expect(rebased.rows[0]?.monto).toBe(800)
+  })
 })

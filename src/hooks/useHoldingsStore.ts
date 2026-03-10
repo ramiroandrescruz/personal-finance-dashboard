@@ -14,11 +14,12 @@ import type {
   Settings
 } from '../types'
 import { DEFAULT_ALLOCATION_TARGETS, sanitizeTargets } from '../utils/allocationTargets'
+import { convertRowToUsd } from '../utils/conversion'
 import { loadCloudDashboardData, saveCloudDashboardData } from '../utils/firebaseStorage'
 import { getSnapshotDateKey } from '../utils/snapshots'
 import { loadDashboardData, saveDashboardData } from '../utils/storage'
 import { normalizeTags } from '../utils/tags'
-import { normalizeMovement, validateAssetDebitAgainstRows, validateTransferAgainstRows } from '../utils/transactions'
+import { normalizeMovement, rebuildRowsFromMovements, validateAssetDebitAgainstRows, validateTransferAgainstRows } from '../utils/transactions'
 import { useDebouncedEffect } from './useDebouncedEffect'
 
 const createFallbackId = (): string => `${Date.now()}-${Math.random().toString(16).slice(2)}`
@@ -527,6 +528,66 @@ export const useHoldingsStore = ({ userId, cloudSyncEnabled = false }: UseHoldin
     [dispatchWithHistory]
   )
 
+  const rebaseInitialValuesToToday = useCallback(() => {
+    const date = getSnapshotDateKey()
+    const historicalMovements = state.transactions.filter((movement) => movement.date <= date)
+    const futureMovements = state.transactions.filter((movement) => movement.date > date)
+    const rowsAtDate = rebuildRowsFromMovements(historicalMovements)
+    const createdAt = Date.now()
+
+    const openingMovements = rowsAtDate.map((row, index) =>
+      normalizeMovement({
+        id: generateId(),
+        date,
+        kind: 'OPENING',
+        cuenta: row.cuenta,
+        moneda: row.moneda,
+        monto: row.monto,
+        cantidad: row.cantidad,
+        tipo: row.tipo,
+        subactivo: row.subactivo,
+        liquidity: row.liquidity,
+        tags: normalizeTags(row.tags),
+        note: 'Rebase automático del valor inicial',
+        createdAt: createdAt + index
+      })
+    )
+
+    const totalsAtDate = rowsAtDate.reduce(
+      (accumulator, row) => {
+        const conversion = convertRowToUsd(row, state.settings)
+        accumulator.totalUsdOficial += conversion.usdOficial
+        accumulator.totalUsdFinanciero += conversion.usdFinanciero
+        return accumulator
+      },
+      {
+        totalUsdOficial: 0,
+        totalUsdFinanciero: 0
+      }
+    )
+
+    const snapshotsAfterDate = state.snapshots.filter((snapshot) => snapshot.date > date)
+    const nextSnapshots = [
+      {
+        date,
+        totalUsdOficial: totalsAtDate.totalUsdOficial,
+        totalUsdFinanciero: totalsAtDate.totalUsdFinanciero,
+        arsUsdOficial: state.settings.arsUsdOficial,
+        arsUsdFinanciero: state.settings.arsUsdFinanciero,
+        capturedAt: createdAt
+      },
+      ...snapshotsAfterDate
+    ]
+
+    dispatchWithHistory({
+      type: 'REBASE_INITIAL_VALUES',
+      payload: {
+        transactions: [...openingMovements, ...futureMovements],
+        snapshots: nextSnapshots
+      }
+    })
+  }, [dispatchWithHistory, state.settings, state.snapshots, state.transactions])
+
   const resetData = useCallback(() => {
     dispatchWithHistory({
       type: 'RESET_DATA',
@@ -671,6 +732,7 @@ export const useHoldingsStore = ({ userId, cloudSyncEnabled = false }: UseHoldin
     addConversionMovement,
     updateMovement,
     deleteMovement,
+    rebaseInitialValuesToToday,
     resetData,
     updateSettings,
     updateTargets,

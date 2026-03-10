@@ -75,6 +75,7 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
     addConversionMovement,
     updateMovement,
     deleteMovement,
+    rebaseInitialValuesToToday,
     resetData,
     updateSettings,
     updateTargets,
@@ -298,20 +299,12 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
   const thresholdPct = clampTargetPercent(targets.alertThresholdPct)
 
   const allocationAlerts = useMemo(() => {
-    const typeAlerts = buildDeviationRows(chartsData.byType, targets.byType, thresholdPct, {
+    return buildDeviationRows(chartsData.byType, targets.byType, thresholdPct, {
       onlyWithTarget: true
     })
       .filter((row) => row.isAlert)
-      .map((row) => ({ ...row, scope: 'Tipo' as const }))
-
-    const subassetAlerts = buildDeviationRows(chartsData.bySubasset, targets.bySubasset, thresholdPct, {
-      onlyWithTarget: true
-    })
-      .filter((row) => row.isAlert)
-      .map((row) => ({ ...row, scope: 'Subactivo' as const }))
-
-    return [...typeAlerts, ...subassetAlerts].sort((left, right) => Math.abs(right.deviationPct) - Math.abs(left.deviationPct))
-  }, [chartsData.bySubasset, chartsData.byType, targets.bySubasset, targets.byType, thresholdPct])
+      .sort((left, right) => Math.abs(right.deviationPct) - Math.abs(left.deviationPct))
+  }, [chartsData.byType, targets.byType, thresholdPct])
 
   const handleCaptureSnapshot = () => {
     const snapshotDate = getSnapshotDateKey()
@@ -418,6 +411,12 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
 
         <SummaryCards totalUsdFinanciero={portfolioTotals.usdFinanciero} totalsByType={portfolioTotalsByType} />
 
+        <AllocationAlertsHome
+          thresholdPct={thresholdPct}
+          alerts={allocationAlerts}
+          onOpenConfig={() => setIsTargetsOpen(true)}
+        />
+
         <GlobalFiltersBar
           filters={filters}
           currencies={currencies}
@@ -482,14 +481,13 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
               pushToast('Rehacer aplicado', 'success')
             }
           }}
+          onRebaseInitialValuesToToday={() => {
+            if (window.confirm('Esto reemplaza el historial hasta hoy por aperturas iniciales con el valor actual. ¿Continuar?')) {
+              rebaseInitialValuesToToday()
+              pushToast('Valor inicial actualizado al saldo de hoy', 'success')
+            }
+          }}
         />
-
-        <AllocationAlertsHome
-          thresholdPct={thresholdPct}
-          alerts={allocationAlerts}
-          onOpenConfig={() => setIsTargetsOpen(true)}
-        />
-
       </main>
 
       <SettingsModal
@@ -511,7 +509,6 @@ function DashboardApp({ email, userId, cloudSyncEnabled, onLogout }: DashboardAp
       >
         <AllocationTargetsPanel
           byType={chartsData.byType}
-          bySubasset={chartsData.bySubasset}
           targets={targets}
           onTargetsChange={(nextTargets) => {
             updateTargets(nextTargets)

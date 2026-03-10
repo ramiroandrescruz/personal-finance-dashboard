@@ -4,7 +4,7 @@ import { AppButton } from './ui/AppButton'
 
 interface AllocationAlertsHomeProps {
   thresholdPct: number
-  alerts: Array<AllocationDeviationRow & { scope: 'Tipo' | 'Subactivo' }>
+  alerts: AllocationDeviationRow[]
   onOpenConfig: () => void
 }
 
@@ -48,9 +48,8 @@ export const AllocationAlertsHome = ({ thresholdPct, alerts, onOpenConfig }: All
             const severity = getAlertSeverity(row.deviationPct, thresholdPct)
 
             return (
-              <article key={`${row.scope}-${row.name}`} className={`allocation-alert-item severity-${severity}`}>
+              <article key={row.name} className={`allocation-alert-item severity-${severity}`}>
                 <div className="allocation-alert-headline">
-                  <span className="allocation-alert-scope">{row.scope}</span>
                   <h3>{row.name}</h3>
                   <span className={`severity-pill severity-${severity}`}>{severity}</span>
                 </div>
